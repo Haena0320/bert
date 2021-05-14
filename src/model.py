@@ -124,7 +124,6 @@ class BERT_PretrainModel(nn.Module):
         self.ns_head = nn.Linear(dimension,2)
         self.activation = nn.Tanh()
 
-
     def forward(self, src, token_type_input=None):
         output = self.bert_model(src, token_type_input)
 

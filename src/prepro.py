@@ -6,6 +6,8 @@ from src.utils import *
 from torch.utils.data import DataLoader, Dataset
 import re
 import random
+
+
 # bookcorpus data
 # URL_book = "https://storage.googleapis.com/huggingface-nlp/datasets/bookcorpus/bookcorpus.tar.bz2"
 # wikitext2
@@ -23,27 +25,23 @@ def make_vocab(input_file, vocab_path, vocab_size, model_name, model_type):
 
     spm.SentencePieceTrainer.Train(cmd)
     logging.info("model, vocab finished ! ")
-    f = open(model_name+".vocab", encoding="utf-8")
+    f = open(model_name + ".vocab", encoding="utf-8")
     v = [doc.strip().split("\t") for doc in f]
     word2idx = {w[0]: i for i, w in enumerate(v)}
     # mask token 추가 어캐한담
-    word2idx["[MASK]"]= len(word2idx)
+    word2idx["[MASK]"] = len(word2idx)
     print("vocab size {}".format(len(word2idx)))
     print("mask token id : {}".format(word2idx["[MASK]"]))
     torch.save(word2idx, vocab_path)
 
-
 def BERTDataloader(config, type, sp, num_workers=10, shuffle=True, drop_last=True):
     bs = config.pretrain.bs
     seq_len = config.pretrain.seq_len
-    corpus_path = config.data.bookcorpus[type] # wiki 랑 bookcorpus 합쳐야 함., 이거 수정필요
-    vocab = torch.load(config.vocab.bookcorpus) # vocab 합쳐서 30000개임, 이거 수정필요
+    corpus_path = config.data.bookcorpus[type]  # wiki 랑 bookcorpus 합쳐야 함., 이거 수정필요
+    vocab = torch.load(config.vocab.bookcorpus)  # vocab 합쳐서 30000개임, 이거 수정필요
     dataset = BERTDataset(corpus_path=corpus_path, vocab=vocab, seq_len=seq_len, sp=sp)
     data_loader = DataLoader(dataset, batch_size=bs, shuffle=shuffle, num_workers=num_workers, drop_last=drop_last)
     return data_loader
-
-
-
 
 class BERTDataset(Dataset):
     def __init__(self, corpus_path, vocab, seq_len, sp, encoding="utf-8", corpus_lines=None, on_memory=True):
@@ -63,7 +61,7 @@ class BERTDataset(Dataset):
         self.mask = self.vocab["[MASK]"]
         f = open(corpus_path, 'r', encoding="utf-8")
         lines = [[clean_str(line[:-1])] for line in tqdm.tqdm(f, desc="Loading Dataset")]
-        self.lines = [lines[i]+lines[i+1] for i in range(len(lines)-1)]
+        self.lines = [lines[i] + lines[i + 1] for i in range(len(lines) - 1)]
         self.corpus_lines = len(self.lines)
 
 
@@ -77,16 +75,16 @@ class BERTDataset(Dataset):
         t1, t2, is_next_label = self.random_sent(item)
         t1_random, t1_label = self.random_word(t1)
         t2_random, t2_label = self.random_word(t2)
-        
+
         # [cls] tag = SOS tag, [SEP] tag = EOS tag
         t1 = [self.bos] + t1_random
-        t2 = [self.eos]+t2_random
- 
-        t1_label = [self.pad]+t1_label
-        t2_label = [self.pad]+t2_label
-   
-        segment_input = [0 for _ in range(len(t1))]+[1 for _ in range(len(t2))]
-        bert_input = t1+t2
+        t2 = [self.eos] + t2_random
+
+        t1_label = [self.pad] + t1_label
+        t2_label = [self.pad] + t2_label
+
+        segment_input = [0 for _ in range(len(t1))] + [1 for _ in range(len(t2))]
+        bert_input = t1 + t2
         bert_label = t1_label + t2_label
 
         if len(segment_input) < self.seq_len:
@@ -95,23 +93,22 @@ class BERTDataset(Dataset):
             bert_label.extend(padding)
             segment_input.extend(padding)
         else:
-            segment_input= segment_input[:self.seq_len]
+            segment_input = segment_input[:self.seq_len]
             bert_input = bert_input[:self.seq_len]
             bert_label = bert_label[:self.seq_len]
 
-        output = {"bert_input":bert_input,
-                  "bert_label":bert_label,
-                  "segment_input":segment_input,
-                  "is_next":is_next_label}
+        output = {"bert_input": bert_input,
+                  "bert_label": bert_label,
+                  "segment_input": segment_input,
+                  "is_next": is_next_label}
 
         assert len(bert_input) == len(segment_input)
-        assert is_next_label in [0,1]
-        return {key:torch.tensor(value) for key, value in output.items()}
+        assert is_next_label in [0, 1]
+        return {key: torch.tensor(value) for key, value in output.items()}
 
     def random_word(self, sentence):
         tokens = self.sp.EncodeAsIds(sentence)
         output_label = []
-
         for i, token in enumerate(tokens):
             prob = random.random()
             if prob < 0.15:
@@ -129,8 +126,7 @@ class BERTDataset(Dataset):
                 output_label.append(token)
 
             else:
-                output_label.append(0) # output of non-target tokens
-
+                output_label.append(0)  # output of non-target tokens
         assert len(tokens) == len(output_label)
         return tokens, output_label
 
@@ -148,6 +144,7 @@ class BERTDataset(Dataset):
     def get_random_line(self):
         return self.lines[random.randrange(0, len(self.lines))][0]
 
+
 def clean_str(string):
     string = re.sub(r"[^A-Za-z0-9(),!?\'\']", " ", string)
     string = re.sub(r"\'s", " \'s", string)
@@ -162,7 +159,5 @@ def clean_str(string):
     string = re.sub(r"\)", " ) ", string)
     string = re.sub(r"\?", " ? ", string)
     string = re.sub(r"\s{2,}", " ", string)
-    return string.strip().lower()
+    #return string.strip().lower()
     return string
-
-

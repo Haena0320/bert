@@ -17,7 +17,7 @@ class WordEncoding(nn.Module):
         return self.embedding(x)
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, max_len=5000):
+    def __init__(self, d_model, max_len=200):
         super(PositionalEncoding, self).__init__()
         self.pos_embedding = nn.Embedding(max_len,d_model)
 

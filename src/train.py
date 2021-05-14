@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-import tqdm as tqdm
+from tqdm import tqdm
 
 def get_trainer(config, args, device, data_loader, writer, type):
     return Trainer(config, args, device, data_loader, writer, type)
@@ -76,26 +76,22 @@ class Trainer:
 
         model.to(self.device)
         loss_save = list()
-
-        data_iter = tqdm.tqdm(enumerate(self.data_loader), desc="%s_data: %d" % (self.type, epoch), total=len(self.data_loader), bar_format="{l_bar}{r_bar}")
         total_correct = 0
         total_loss = 0
         correct_t = 0
-        for i, data in data_iter:
 
+
+        for i, data in tqdm(enumerate(self.data_loader)):
             data = {k:v.to(self.device) for k, v in data.items()}
-
             mask_lm_output, next_sent_output= model.forward(data["bert_input"], data["segment_input"])
             bs, seq, _ = mask_lm_output.size()
             next_loss = self.get_loss(next_sent_output, data["is_next"])
             mask_loss = self.get_loss(mask_lm_output.view(bs*seq, -1), data["bert_label"].view(-1))
-
             loss = next_loss + mask_loss
-            total_loss += loss
+            total_loss += loss.item()
             if self.type =="train":
                 self.log_writer(loss, self.global_step)
                 self.optim_process(model, loss)
-
                 self.global_step += 1
 
                 if self.global_step % self.ckpnt_step ==0:
@@ -108,15 +104,12 @@ class Trainer:
 
             # next sentence accuracy
             correct = next_sent_output.argmax(dim=-1).eq(data["is_next"]).long()
-            pred_mask = 1 - data["is_next"].eq(0).float()
-            correct_t += pred_mask.long().sum()
-            correct *= pred_mask.long()
+            correct_t += len(data["is_next"])
             total_correct += correct.sum().item()
 
         if self.type != "train":
             te_loss = sum(loss_save)/len(loss_save)
             self.log_writer(te_loss, self.global_step)
-
 
         print("Epoch {} | Mode {} | Avg_loss {} | Total-accuracy {}".format(epoch, self.type, total_loss/len(self.data_loader) , total_correct*100/correct_t))
 
@@ -124,7 +117,7 @@ class Trainer:
         loss /= self.accum
         loss.backward()
         if self.global_step % self.accum == 0:
-            torch.nn.utils.clip_grad_norm(model.parameters(), self.config.pretrain.clip)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), self.config.pretrain.clip)
             self.optimizer.step()
             self.scheduler.step()
             self.optimizer.zero_grad()

@@ -80,8 +80,7 @@ class Trainer:
         total_loss = 0
         correct_t = 0
 
-
-        for i, data in tqdm(enumerate(self.data_loader)):
+        for data in tqdm(self.data_loader):
             data = {k:v.to(self.device) for k, v in data.items()}
             mask_lm_output, next_sent_output= model.forward(data["bert_input"], data["segment_input"])
             bs, seq, _ = mask_lm_output.size()
@@ -90,14 +89,14 @@ class Trainer:
             loss = next_loss + mask_loss
             total_loss += loss.item()
             if self.type =="train":
-                self.log_writer(loss, self.global_step)
+                self.log_writer(loss.data, self.global_step)
                 self.optim_process(model, loss)
                 self.global_step += 1
 
                 if self.global_step % self.ckpnt_step ==0:
                     torch.save({"epoch":epoch,
                                 "model_state_dict":model.state_dict(),
-                                "optimizer_state_dict":self.optimizer.state_dict()}, save_path+"ckpnt_{}".format(epoch))
+                                "optimizer_state_dict":self.optimizer.state_dict()}, save_path+"ckpnt_{}".format(self.global_step//self.ckpnt_step))
 
             else:
                 loss_save.append(loss.item())
@@ -109,9 +108,10 @@ class Trainer:
 
         if self.type != "train":
             te_loss = sum(loss_save)/len(loss_save)
-            self.log_writer(te_loss, self.global_step)
+            self.writer.add_scalar("test/loss",te_loss, self.global_step)
+            self.writer.add_scalar("test/accuracy", total_correct*100/correct_t, self.global_step)
 
-        print("Epoch {} | Mode {} | Avg_loss {} | Total-accuracy {}".format(epoch, self.type, total_loss/len(self.data_loader) , total_correct*100/correct_t))
+        #     #print("Epoch {} | Mode {} | Avg_loss {} | Total-accuracy {}".format(epoch, self.type, total_loss/len(self.data_loader) , total_correct*100/correct_t))
 
     def optim_process(self, model, loss):
         loss /= self.accum

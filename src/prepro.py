@@ -1,4 +1,5 @@
-import os
+import os, sys
+sys.path.append(os.getcwd())
 import logging
 import sentencepiece as spm
 import tqdm
@@ -6,6 +7,7 @@ from src.utils import *
 from torch.utils.data import DataLoader, Dataset
 import re
 import random
+import numpy as np
 
 
 # bookcorpus data
@@ -48,6 +50,7 @@ class BERTDataset(Dataset):
         self.vocab = vocab
         self.seq_len = seq_len
         self.sp = sp
+        self.vocab_size = len(vocab)
 
         self.on_memory = on_memory
         self.corpus_lines = corpus_lines
@@ -83,12 +86,12 @@ class BERTDataset(Dataset):
         t1_label = [self.pad] + t1_label
         t2_label = [self.pad] + t2_label
 
-        segment_input = [0 for _ in range(len(t1))] + [1 for _ in range(len(t2))]
+        segment_input = [0]*len(t1) + [1]* len(t2)
         bert_input = t1 + t2
         bert_label = t1_label + t2_label
 
         if len(segment_input) < self.seq_len:
-            padding = [self.pad for _ in range(self.seq_len - len(bert_input))]
+            padding = [self.pad] * (self.seq_len - len(bert_input))# for _ in range(self.seq_len - len(bert_input))]
             bert_input.extend(padding)
             bert_label.extend(padding)
             segment_input.extend(padding)
@@ -105,30 +108,31 @@ class BERTDataset(Dataset):
         assert len(bert_input) == len(segment_input)
         assert is_next_label in [0, 1]
         return {key: torch.tensor(value) for key, value in output.items()}
+        #return {key: value for key, value in output.items()}
 
     def random_word(self, sentence):
         tokens = self.sp.EncodeAsIds(sentence)
-        output_label = []
-        for i, token in enumerate(tokens):
-            prob = random.random()
-            if prob < 0.15:
-                prob /= 0.15
+        token_probs = np.random.uniform(0, 1, len(tokens)).tolist()
+        probs = list(zip(tokens, token_probs))
+        output_label = [0]*len(tokens)
+        cnt = 0
+        for token, p in probs:
+            if p < 0.15:
                 # 80% randomly change token to mask token
-                if prob < 0.8:
-                    tokens[i] = self.mask
+                if p < 0.12:
+                    tokens[cnt] = self.mask
                 # 10% randomly change token to random token
-                elif prob < 0.9:
-                    tokens[i] = random.randrange(len(self.vocab))
+                elif p < 0.135:
+                    tokens[cnt] = np.random.randint(0,self.vocab_size)
                 # 10% randomly change token to current token
                 else:
                     pass
-
-                output_label.append(token)
-
-            else:
-                output_label.append(0)  # output of non-target tokens
+                output_label[cnt] = token
+            cnt += 1
         assert len(tokens) == len(output_label)
+        print(tokens, output_label)
         return tokens, output_label
+    
 
     def random_sent(self, index):
         t1, t2 = self.get_corpus_line(index)
@@ -142,8 +146,7 @@ class BERTDataset(Dataset):
         return self.lines[item][0], self.lines[item][1]
 
     def get_random_line(self):
-        return self.lines[random.randrange(0, len(self.lines))][0]
-
+        return self.lines[random.randint(0, self.corpus_lines)][0]
 
 def clean_str(string):
     string = re.sub(r"[^A-Za-z0-9(),!?\'\']", " ", string)
@@ -161,3 +164,6 @@ def clean_str(string):
     string = re.sub(r"\s{2,}", " ", string)
     #return string.strip().lower()
     return string
+
+
+

@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--mode", type=str, default="")
 parser.add_argument("--device", type=str, default=None)
 parser.add_argument("--config", type=str, default="default")
-parser.add_argument("--total_steps", type=int, default="90000")
+parser.add_argument("--total_steps", type=int, default="1000000")
 parser.add_argument("--dataset", type=str, default="bookcorpus")
 parser.add_argument("--model", type=str, default="base")
 parser.add_argument("--eval_steps", type=int, default=50000)
@@ -63,14 +63,13 @@ sp.Load("word-piece-encoding.model")
 # debuger.init_scheduler(scheduler)
 #
 # # train + eval
-# epochs = args.total_steps // len(debug_loader)
+# #epochs = max(args.total_steps // len(debug_loader), 1)
+# epochs = 1
 # print("-------------------------------------------------Train Epochs  {}------------------------------------------------".format(epochs))
-# for epoch in range(epochs):
+# for epoch in tqdm.tqdm(range(epochs)):
 #     debuger.train_epoch(model,epoch)
 #
 # print("train finished..")
-#
-
 ##############################################train mode ###############################################################
 #data load
 
@@ -98,9 +97,9 @@ trainer.init_scheduler(scheduler)
 #train + eval
 epochs = max(args.total_steps // len(train_loader), 1)
 print("-------------------------------------------------Train Epochs  {}------------------------------------------------".format(epochs))
-for epoch in range(epochs):
-   trainer.train_epoch(model,epoch)
-   valider.train_epoch(model, epoch)
-   tester.train_epoch(model, epoch)
+for epoch in tqdm.tqdm(range(epochs)):
+   trainer.train_epoch(model,epoch, save_path="./data/prepro/bookcorpus/train.pkl")
+   valider.train_epoch(model, epoch, save_path="./data/prepro/bookcorpus/valid.pkl")
+   tester.train_epoch(model, epoch, save_path="./data/prepro/bookcorpus/test.pkl")
 
 print("train finished..")

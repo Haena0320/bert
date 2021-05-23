@@ -38,7 +38,6 @@ class SegmentEncoding(nn.Module):
         self.segment_embeddings.weight.data.normal_(mean=0.02, std=0.02)
 
     def forward(self, type_input=None): # typ_input : 0, 1 으로 마스킹 되있는 input data, x.size == type_input.size
-
         return self.segment_embeddings(type_input)
 
 
@@ -46,7 +45,7 @@ class SegmentEncoding(nn.Module):
 class ScaledDotProduct(nn.Module):
     def __init__(self, dropout= 0.1, device=None):
         super(ScaledDotProduct, self).__init__()
-        self.dropout= dropout
+        self.dropout = dropout
         self.device = device
 
     def forward(self, query, key, value, attn_mask=None):
@@ -54,17 +53,16 @@ class ScaledDotProduct(nn.Module):
         # (bs * h, seq_q, dimension/h) (128, 56, 64)
         # (bs * h, seq_k, dimension/h)
         # (bs * h, seq_v, dimension/h)
+        # (bs, seq_k)
         bs_h, K, dimension_k = key.size()
         _, Q, _ = query.size()
-        attn_output = torch.bmm(query, key.transpose(1,2))/dimension_k**0.5 # attn_output : (bs, seq_q, seq_k)
-        if attn_mask is not None:
-
-            mask = torch.ones(Q,K)
-            mask = 1-torch.tril(mask, diagonal=0)
-            mask = mask*(-2**32)
-            mask = mask.repeat(bs_h, 1, 1)
-            device = torch.device("cuda:0")
-            attn_output +=  mask.to(device)
+        attn_output = torch.bmm(query, key.transpose(1,2))/dimension_k**0.5  # attn_output : (bs, seq_q, seq_k)
+        # attn mask
+        bs, _ = attn_mask.size()
+        h = bs_h // bs
+        assert bs_h == h*bs
+        attn_mask = attn_mask.eq(0).float().repeat(h,1).unsqueeze(1).repeat(1,Q,1).contiguous()
+        attn_output += attn_mask*(-1e-10)
         attn_output = F.softmax(attn_output, dim=-1)
         attn_output = F.dropout(attn_output, p=self.dropout)
         output = torch.bmm(attn_output,value) # output : (bs, seq_q, d_model)
@@ -76,15 +74,14 @@ class MultiheadAttention_In(nn.Module):
     def __init__(self, d_model, num_heads):
         super(MultiheadAttention_In, self).__init__()
         self.num_heads = num_heads
-        self.fc_q = nn.Linear(d_model, d_model)
-        self.fc_k = nn.Linear(d_model, d_model)
-        self.fc_v = nn.Linear(d_model, d_model)
+        self.fc_q = nn.Linear(d_model, d_model, bias=False)
+        self.fc_k = nn.Linear(d_model, d_model, bias=False)
+        self.fc_v = nn.Linear(d_model, d_model, bias=False)
 
     def init_weights(self):
-        pass
-        # self.fc_q = self.fc_q.weight.data.normal_(mean=0.0, std=0.02)
-        # self.fc_k = self.fc_k.weight.data.normal_(mean=0.0, std=0.02)
-        # self.fc_v = self.fc_v.weight.data.normal_(mean=0.0, std=0.02)
+        self.fc_q.weight.data.normal_(mean=0.0, std=0.02)
+        self.fc_k.weight.data.normal_(mean=0.0, std=0.02)
+        self.fc_v.weight.data.normal_(mean=0.0, std=0.02)
 
     def forward(self, query, key, value): # (bs, seq, embedding_dim)
         bs, seq, d_model = query.size()
@@ -115,5 +112,5 @@ class MultiheadAttention_Out(nn.Module):
         bs = bs_h // self.num_heads
         assert bs * self.num_heads == bs_h
 
-        attn_output = torch.cat(torch.chunk(attn_output,self.num_heads, dim=0), dim=2) # (bs,seq_q,embedding_dim)
+        attn_output = torch.cat(torch.chunk(attn_output,self.num_heads, dim=0), dim=2).contiguous() # (bs,seq_q,embedding_dim)
         return self.linear(attn_output)

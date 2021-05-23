@@ -40,75 +40,64 @@ def BERTDataloader(config, type, sp, num_workers=10, shuffle=True, drop_last=Tru
     bs = config.pretrain.bs
     seq_len = config.pretrain.seq_len
     corpus_path = config.data.bookcorpus[type]  # wiki 랑 bookcorpus 합쳐야 함., 이거 수정필요
-    vocab = torch.load(config.vocab.bookcorpus)  # vocab 합쳐서 30000개임, 이거 수정필요
+    vocab = torch.load(config.vocab.bookcorpus)
     dataset = BERTDataset(corpus_path=corpus_path, vocab=vocab, seq_len=seq_len, sp=sp)
-    data_loader = DataLoader(dataset, batch_size=bs, shuffle=shuffle, num_workers=num_workers, drop_last=drop_last)
+    data_loader = DataLoader(dataset, batch_size=bs, shuffle=shuffle, num_workers=num_workers, drop_last=drop_last, collate_fn = make_padd)
     return data_loader
 
+def make_padd(samples):
+    bert_input = [sample["bert_input"] for sample in samples]
+    bert_label = [sample["bert_label"] for sample in samples]
+    segment_input = [sample["segment_input"] for sample in samples]
+    
+    def padd(samples):
+        length = [len(i) for i in samples]
+        max_len = 128
+        batch = torch.zeros((len(length), max_len)).to(torch.long)
+        for idx, sample in enumerate(samples):
+            if length[idx] < max_len:
+                batch[idx, :length[idx]] = torch.LongTensor(sample)
+            else:
+                batch[idx, :max_len] = torch.LongTensor(sample[:max_len])
+                batch[idx, max_length-1] = troch.LongTensor([2])
+        return torch.LongTensor(batch)
+    
+    bert_input = padd(bert_input)
+    bert_label = padd(bert_label)
+    segment_input = padd(segment_input)
+
+    return {"bert_input":bert_input.contiguous(), "bert_label":bert_label.contiguous(), "segment_input":segment_input.contiguous()}
+
+
 class BERTDataset(Dataset):
-    def __init__(self, corpus_path, vocab, seq_len, sp, encoding="utf-8", corpus_lines=None, on_memory=True):
+    def __init__(self, corpus_path, vocab, sp, encoding="utf-8"):
         self.vocab = vocab
-        self.seq_len = seq_len
         self.sp = sp
         self.vocab_size = len(vocab)
-
-        self.on_memory = on_memory
-        self.corpus_lines = corpus_lines
-        self.corpus_path = corpus_path
-        self.encoding = encoding
 
         self.pad = 0
         self.bos = 1
         self.eos = 2
-        self.unk = 3
+  
         self.mask = self.vocab["[MASK]"]
-        f = open(corpus_path, 'r', encoding="utf-8")
-        lines = [[clean_str(line[:-1])] for line in tqdm.tqdm(f, desc="Loading Dataset")]
-        self.lines = [lines[i] + lines[i + 1] for i in range(len(lines) - 1)]
+        f = open(corpus_path, 'r', encoding=encoding)
+        self.lines = [[clean_str(line[:-1])] for line in tqdm.tqdm(f, desc="Loading Dataset")]
         self.corpus_lines = len(self.lines)
-
 
     def __len__(self):
         return self.corpus_lines
 
     def __getitem__(self, item):
-        if torch.is_tensor(item):
-            item = item.tolist()
+        t = self.get_corpus_line(item)
+        t_random, t_label = self.random_word(t)
+        t_random.insert(0, self.bos)
+        t_label.insert(0, self.pad)
+        segment_input = [self.pad]*len(t)
 
-        t1, t2, is_next_label = self.random_sent(item)
-        t1_random, t1_label = self.random_word(t1)
-        t2_random, t2_label = self.random_word(t2)
-
-        # [cls] tag = SOS tag, [SEP] tag = EOS tag
-        t1 = [self.bos] + t1_random
-        t2 = [self.eos] + t2_random
-
-        t1_label = [self.pad] + t1_label
-        t2_label = [self.pad] + t2_label
-
-        segment_input = [0]*len(t1) + [1]* len(t2)
-        bert_input = t1 + t2
-        bert_label = t1_label + t2_label
-
-        if len(segment_input) < self.seq_len:
-            padding = [self.pad] * (self.seq_len - len(bert_input))# for _ in range(self.seq_len - len(bert_input))]
-            bert_input.extend(padding)
-            bert_label.extend(padding)
-            segment_input.extend(padding)
-        else:
-            segment_input = segment_input[:self.seq_len]
-            bert_input = bert_input[:self.seq_len]
-            bert_label = bert_label[:self.seq_len]
-
-        output = {"bert_input": bert_input,
-                  "bert_label": bert_label,
-                  "segment_input": segment_input,
-                  "is_next": is_next_label}
-
-        assert len(bert_input) == len(segment_input)
-        assert is_next_label in [0, 1]
-        return {key: torch.tensor(value) for key, value in output.items()}
-        #return {key: value for key, value in output.items()}
+        output = {"bert_input": t_random,
+                  "bert_label": t_label,
+                  "segment_input": segment_input}
+        return output
 
     def random_word(self, sentence):
         tokens = self.sp.EncodeAsIds(sentence)
@@ -131,21 +120,7 @@ class BERTDataset(Dataset):
             cnt += 1
         assert len(tokens) == len(output_label)
         return tokens, output_label
-    
 
-    def random_sent(self, index):
-        t1, t2 = self.get_corpus_line(index)
-        if random.random() > 0.5:
-            return t1, t2, 1
-        else:
-            t2 = self.get_random_line()
-            return t1, t2, 0
-
-    def get_corpus_line(self, item):
-        return self.lines[item][0], self.lines[item][1]
-
-    def get_random_line(self):
-        return self.lines[random.randint(0, self.corpus_lines)][0]
 
 def clean_str(string):
     string = re.sub(r"[^A-Za-z0-9(),!?\'\']", " ", string)

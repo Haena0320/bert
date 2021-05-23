@@ -34,12 +34,27 @@ class EncoderLayer(nn.Module):
         self.norm2.weight.data.fill_(1.0)
 
     def forward(self, input, input_mask=None):
+        import time
+        a = time.time()
+        print(a)
         query, key, value = self.attn_in(input, input, input)
+        b = time.time()-a
+        print("after attn in", b)
         attn_out = self.scaled_dot(query, key, value, input_mask)
+        c = time.time()-b
+        print("after scaled dot", c)
         out1 = self.attn_out(attn_out)
+        d = time.time()-c
+        print("after attn out",d)
         out = self.norm1(input+self.dropout1(out1))
+        e = time.time()-d
+        print("after norm", e)
         out2= self.linear2(self.dropout(self.activation(self.linear1(out))))
+        f = time.time()-e
+        print("after ffd", f)
         out = self.norm2(out1+self.dropout2(out2))
+        g = time.time()-f
+        print("after norm final ", g)
         return out
 
 class TransformerEncoder(nn.Module):
@@ -95,8 +110,8 @@ class BertModel(nn.Module):
         self.transformer_encoder.init_weights()
 
     def forward(self, src, type_input):
-        src = self.bert_embed(src, type_input)
-        output = self.transformer_encoder(src)
+        output = self.bert_embed(src, type_input)
+        output = self.transformer_encoder(input=output, mask=src)
         return output
 
 
@@ -119,11 +134,6 @@ class BERT_PretrainModel(nn.Module):
         self.norm_layer = torch.nn.LayerNorm(dimension, eps=1e-12)
         self.mlm_head = nn.Linear(dimension, vocab)
 
-        # NSTask
-        self.ns_span = nn.Linear(dimension, dimension)
-        self.ns_head = nn.Linear(dimension,2)
-        self.activation = nn.Tanh()
-
     def forward(self, src, token_type_input=None):
         output = self.bert_model(src, token_type_input)
 
@@ -133,11 +143,66 @@ class BERT_PretrainModel(nn.Module):
         mlm_output = self.norm_layer(mlm_output)
         mlm_output = self.mlm_head(mlm_output)
 
-        # next sentence prediction
-        ns_output = self.activation(self.ns_span(output[:, 0,:]))
-        ns_output = self.ns_head(ns_output)
+        return mlm_output
 
-        return mlm_output, ns_output
+
+
+class Next_Sentence_Prediction(nn.Module): # use pretrained model
+    def __init__(self, config, args, device):
+        super(BERT, self).__init__()
+        dimension = config.model.hidden
+
+        self.bert = BERT_PretrainModel(ocnfig, args, device)
+        self.ns_span = nn.Linear(dimension, dimension)
+        self.ns_head = nn.Linear(dimension,2)
+        self.activation = nn.Tanh()
+
+    def forward(self, src, token_type_input=None):
+        output = self.bert(src, token_type_input)
+        # next sentence prediction
+        ns_output = self.activation(self.ns_span(output[:, 0, :]))
+        ns_output = self.ns_head(ns_output)
+        return ns_output
+
+
+# class BERT_PretrainModel(nn.Module):
+#     def __init__(self, config, args, device):
+#         super(BERT_PretrainModel, self).__init__()
+#         vocab = 30001
+#         dimension = config.model.hidden
+#         num_heads = config.model.num_head
+#         num_layers = config.pretrain.num_layers
+#         dim_feedforward = config.model.dim_feedforward
+#         dropout = config.model.d_rate
+#
+#         self.bert_model = BertModel(vocab, dimension, num_heads, dim_feedforward, num_layers, dropout, device)
+#
+#         # MLMTask
+#         self.mlm_span = nn.Linear(dimension, dimension)
+#         self.activation = nn.GELU()
+#         self.norm_layer = torch.nn.LayerNorm(dimension, eps=1e-12)
+#         self.mlm_head = nn.Linear(dimension, vocab)
+#
+#         # NSTask
+#         self.ns_span = nn.Linear(dimension, dimension)
+#         self.ns_head = nn.Linear(dimension, 2)
+#         self.activation = nn.Tanh()
+#
+#     def forward(self, src, token_type_input=None):
+#         output = self.bert_model(src, token_type_input)
+#
+#         # masked token prediction
+#         mlm_output = self.mlm_span(output)
+#         mlm_output = self.activation(mlm_output)
+#         mlm_output = self.norm_layer(mlm_output)
+#         mlm_output = self.mlm_head(mlm_output)
+#
+#         # next sentence prediction
+#         ns_output = self.activation(self.ns_span(output[:, 0, :]))
+#         ns_output = self.ns_head(ns_output)
+#
+#         return mlm_output, ns_output
+
 
 
 

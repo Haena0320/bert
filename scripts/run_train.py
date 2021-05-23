@@ -71,8 +71,8 @@ for epoch in tqdm.tqdm(range(epochs)):
 
 print("train finished..")
 ##############################################train mode ###############################################################
-#data load
-
+# #data load
+#
 # train_loader = BERTDataloader(config,"train", sp)
 # #test_loader = BERTDataloader(config, "test", sp)
 # #valid_loader = BERTDataloader(config, "valid", sp)

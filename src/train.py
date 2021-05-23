@@ -85,11 +85,12 @@ class Trainer:
 
         for data in tqdm(self.data_loader):
             data = {k:v.to(self.device) for k, v in data.items()}
-            mask_lm_output, next_sent_output= model.forward(data["bert_input"], data["segment_input"])
+            mask_lm_output = model.forward(data["bert_input"], data["segment_input"])
+            #mask_lm_output, next_sent_output= model.forward(data["bert_input"], data["segment_input"])
             bs, seq, _ = mask_lm_output.size()
-            next_loss = self.get_loss(next_sent_output, data["is_next"])
-            mask_loss = self.get_loss(mask_lm_output.view(bs*seq, -1), data["bert_label"].view(-1))
-            loss = next_loss + mask_loss
+            #next_loss = self.get_loss(next_sent_output, data["is_next"])
+            loss = self.get_loss(mask_lm_output.view(bs*seq, -1), data["bert_label"].view(-1))
+            #loss = next_loss + mask_loss
 
             if self.type =="train":
                 self.optim_process(model, loss)
@@ -104,9 +105,9 @@ class Trainer:
                 loss_save.append(loss.item())
 
                 # next sentence accuracy
-                correct = next_sent_output.argmax(dim=-1).eq(data["is_next"]).long()
-                correct_t += len(data["is_next"])
-                total_correct += correct.sum().item()
+                # correct = next_sent_output.argmax(dim=-1).eq(data["is_next"]).long()
+                # correct_t += len(data["is_next"])
+                # total_correct += correct.sum().item()
 
         if self.type != "train":
             te_loss = sum(loss_save)/len(loss_save)

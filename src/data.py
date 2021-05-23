@@ -5,6 +5,7 @@ import random
 import numpy as np
 import logging
 import torch
+import json
 
 class Make_BERTDataset:
     def __init__(self, corpus_path, vocab, seq_len, sp, encoding="utf-8", corpus_lines=None, on_memory=True):
@@ -26,14 +27,20 @@ class Make_BERTDataset:
         f = open(corpus_path, 'r', encoding="utf-8")
         lines = [[clean_str(line[:-1])] for line in tqdm(f, desc="Loading Dataset")]
         self.lines = [lines[i] + lines[i + 1] for i in range(len(lines) - 1)]
+        f.close()
         self.corpus_lines = len(self.lines)
 
     def data_prepro(self, save_path):
-        f = open(save_path)
+
+        data_dummies = dict()
+        data_dummies["data"] = list()
         for idx in tqdm(range(self.corpus_lines)):
-            a,b,c,d = self.item(idx)
-            f.write(str(a),b,c,d,"\n")
-        f.close()
+            data = self.item(idx)
+            data_dummies["data"].append(data)
+        with open(save_path, 'w') as outfile:
+            json.dump(data_dummies, outfile)
+        logging.info("save data ..")
+
     def item(self, item):
         if torch.is_tensor(item):
             item = item.tolist()
@@ -70,8 +77,8 @@ class Make_BERTDataset:
 
         assert len(bert_input) == len(segment_input)
         assert is_next_label in [0, 1]
-        #return {key: torch.tensor(value) for key, value in output.items()}
-         return bert_input, bert_label, segment_input, is_next_label
+
+        return output
 
     def random_word(self, sentence):
         tokens = self.sp.EncodeAsIds(sentence)
@@ -107,7 +114,7 @@ class Make_BERTDataset:
         return self.lines[item][0], self.lines[item][1]
 
     def get_random_line(self):
-        return self.lines[random.randint(0, self.corpus_lines)][0]
+        return self.lines[random.randint(0, self.corpus_lines-1)][0]
 
 
 def clean_str(string):

@@ -95,9 +95,12 @@ print("train finished..")
 # trainer.init_scheduler(scheduler)
 #
 # #train + eval
-# epochs = max(args.total_steps // len(train_loader), 1)
+total_epoch = args.total_steps // (config.pretrain.accum_stack * config.pretrain.bs)
+total_epoch = max(total_epoch, 1)
+print("total epoch {}".format(total_epoch))
+
 # print("-------------------------------------------------Train Epochs  {}------------------------------------------------".format(epochs))
-# for epoch in tqdm.tqdm(range(epochs)):
+# for epoch in tqdm.tqdm(range(total_epoch)):
 #    trainer.train_epoch(model,epoch, save_path="./log/ckpnt/")
 #   # valider.train_epoch(model, epoch, save_path="./data/prepro/bookcorpus/valid.pkl")
 #    #tester.train_epoch(model, epoch, save_path="./data/prepro/bookcorpus/test.pkl")

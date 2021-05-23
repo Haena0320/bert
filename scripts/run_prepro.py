@@ -26,5 +26,17 @@ for p, s_p in list(zip(path, save_path)):
     make_data.data_prepro(s_p)
 
 
+import glob
+import os
+
+raw_train = glob.glob("./data/raw/bookcorpus_s/"+"*")
+prepro_train_dir = "./data/prepro/bookcorpus_s/"
+
+for i, f in enumerate(raw_train):
+    s_path=oj(prepro_train_dir, "data_"+str(i)+"_.json")
+    file = open(s_path, "w")
+    make_data = Make_BERTDataset(p, vocab, seq_len, sp, encoding="utf-8", corpus_lines=None, on_memory=True)
+    make_data.data_prepro(s_path)
+
 #########################################################################################save ##########################
 

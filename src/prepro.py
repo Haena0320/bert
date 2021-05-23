@@ -130,7 +130,6 @@ class BERTDataset(Dataset):
                 output_label[cnt] = token
             cnt += 1
         assert len(tokens) == len(output_label)
-        print(tokens, output_label)
         return tokens, output_label
     
 

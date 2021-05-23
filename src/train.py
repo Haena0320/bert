@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
+from torch.cuda import amp
 
 from tqdm import tqdm
 
@@ -49,7 +50,9 @@ class Trainer:
         self.type=type
         self.accum = config.pretrain.accum_stack
         self.ckpnt_step = config.pretrain.ckpnt_step
+        self.gradscaler = amp.GradScaler()
         self.global_step = 0
+        self.step = 0
         self.train_loss = 0
         self.get_loss = nn.CrossEntropyLoss(ignore_index=0)
 
@@ -87,40 +90,49 @@ class Trainer:
             next_loss = self.get_loss(next_sent_output, data["is_next"])
             mask_loss = self.get_loss(mask_lm_output.view(bs*seq, -1), data["bert_label"].view(-1))
             loss = next_loss + mask_loss
-            total_loss += loss.item()
-            if self.type =="train":
-                self.log_writer(loss.data, self.global_step)
-                self.optim_process(model, loss)
-                self.global_step += 1
 
-                if self.global_step % self.ckpnt_step ==0:
+            if self.type =="train":
+                self.optim_process(model, loss)
+                self.step += 1
+
+                if self.step % self.ckpnt_step ==0:
                     torch.save({"epoch":epoch,
                                 "model_state_dict":model.state_dict(),
-                                "optimizer_state_dict":self.optimizer.state_dict()}, save_path+"ckpnt_{}".format(self.global_step//self.ckpnt_step))
+                                "optimizer_state_dict":self.optimizer.state_dict()}, save_path+"ckpnt_{}".format(epoch))
 
             else:
                 loss_save.append(loss.item())
 
-            # next sentence accuracy
-            correct = next_sent_output.argmax(dim=-1).eq(data["is_next"]).long()
-            correct_t += len(data["is_next"])
-            total_correct += correct.sum().item()
+                # next sentence accuracy
+                correct = next_sent_output.argmax(dim=-1).eq(data["is_next"]).long()
+                correct_t += len(data["is_next"])
+                total_correct += correct.sum().item()
 
         if self.type != "train":
             te_loss = sum(loss_save)/len(loss_save)
-            self.writer.add_scalar("test/loss",te_loss, self.global_step)
-            self.writer.add_scalar("test/accuracy", total_correct*100/correct_t, self.global_step)
+            self.writer.add_scalar("test/loss",te_loss, self.step)
+            self.writer.add_scalar("test/accuracy", total_correct*100/correct_t, self.step)
+
+        else:
+            return None
 
         #     #print("Epoch {} | Mode {} | Avg_loss {} | Total-accuracy {}".format(epoch, self.type, total_loss/len(self.data_loader) , total_correct*100/correct_t))
 
     def optim_process(self, model, loss):
         loss /= self.accum
+        #self.gradscaler.scale(loss).backward()
         loss.backward()
-        if self.global_step % self.accum == 0:
+
+        if self.step % self.accum == 0:
+            #self.gradscaler.unscale_(self.optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), self.config.pretrain.clip)
+            #self.gradscaler.step(self.optimizer)
+            #self.gradscaler.update()
             self.optimizer.step()
             self.scheduler.step()
             self.optimizer.zero_grad()
+            self.log_writer(loss.data*self.accum, self.global_step)
+            self.global_step += 1
 
 
 

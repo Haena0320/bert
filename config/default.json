@@ -2,5 +2,6 @@
   "model": {"hidden": 128, "d_rate": 0.1, "dim_feedforward": 512, "num_head": 2},
   "vocab": {"wiki":"./data/prepro/wiki/vocab.pkl","bookcorpus": "./data/prepro/bookcorpus/vocab.pkl"},
 "data": {"wiki": {"train":"./data/raw/wiki/wikitext-2/wiki.train.tokens", "test":"./data/raw/wiki/wikitext-2/wiki.test.tokens", "valid": "./data/raw/wiki/wikitext-2/wiki.valid.tokens"},
-          "bookcorpus": {"large": "./data/raw/bookcorpus/books_large.txt", "train": "./data/raw/bookcorpus/train_2.txt", "test": "./data/raw/bookcorpus/test.txt", "valid": "./data/raw/bookcorpus/valid.txt", "debug": "./data/raw/bookcorpus/xaa.txt"}},
-"vocab_info": {"n_token": 30000, "model_type": "word", "model_name": "word-piece-encoding"}}
+          "bookcorpus": {"large": "./data/raw/bookcorpus/books_large.txt", "train": "./data/raw/bookcorpus/train.txt", "test": "./data/raw/bookcorpus/test.txt", "valid": "./data/raw/bookcorpus/valid.txt", "debug": "./data/raw/bookcorpus/valid.txt"}},
+"vocab_info": {"n_token": 30000, "model_type": "word", "model_name": "word-piece-encoding"},
+"prepro_data": {"bookcorpus": {"train":"./data/prepro/bookcorpus/train.txt" ,"test": "./data/prepro/bookcorpus/test.txt","valid":"./data/prepro/bookcorpus/valid.txt"}}}

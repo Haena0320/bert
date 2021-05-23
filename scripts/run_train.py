@@ -48,58 +48,58 @@ sp = spm.SentencePieceProcessor()
 sp.Load("word-piece-encoding.model")
 
 #############################################debug######################################################################
-# # data load
-# debug_loader = BERTDataloader(config, "debug", sp)
-# model = BERT_PretrainModel(config, args, device)
-#
-# # trainer load
-# debuger = train.get_trainer(config, args, device, debug_loader, writer, "train")
-#
-# # optimizer
-# optimizer = train.get_optimizer(model, args.optim)
-# scheduler = train.get_lr_scheduler(optimizer, config)
-#
-# debuger.init_optimizer(optimizer)
-# debuger.init_scheduler(scheduler)
-#
-# # train + eval
-# #epochs = max(args.total_steps // len(debug_loader), 1)
-# epochs = 1
-# print("-------------------------------------------------Train Epochs  {}------------------------------------------------".format(epochs))
-# for epoch in tqdm.tqdm(range(epochs)):
-#     debuger.train_epoch(model,epoch)
-#
-# print("train finished..")
-##############################################train mode ###############################################################
-#data load
-
-train_loader = BERTDataloader(config,"train", sp)
-test_loader = BERTDataloader(config, "test", sp)
-valid_loader = BERTDataloader(config, "valid", sp)
-
-print("Iteration :: train {} | test {} | valid {}".format(len(train_loader), len(test_loader), len(valid_loader)))
-
-#model load
+# data load
+debug_loader = BERTDataloader(config, "debug", sp)
 model = BERT_PretrainModel(config, args, device)
 
-#trainer load
-trainer = train.get_trainer(config,args,device,train_loader, writer, "train")
-tester = train.get_trainer(config, args, device, test_loader, writer, "test")
-valider = train.get_trainer(config, args, device, valid_loader, writer, "valid")
+# trainer load
+debuger = train.get_trainer(config, args, device, debug_loader, writer, "train")
 
 # optimizer
 optimizer = train.get_optimizer(model, args.optim)
 scheduler = train.get_lr_scheduler(optimizer, config)
 
-trainer.init_optimizer(optimizer)
-trainer.init_scheduler(scheduler)
+debuger.init_optimizer(optimizer)
+debuger.init_scheduler(scheduler)
 
-#train + eval
-epochs = max(args.total_steps // len(train_loader), 1)
+# train + eval
+#epochs = max(args.total_steps // len(debug_loader), 1)
+epochs = 1
 print("-------------------------------------------------Train Epochs  {}------------------------------------------------".format(epochs))
 for epoch in tqdm.tqdm(range(epochs)):
-   trainer.train_epoch(model,epoch, save_path="./data/prepro/bookcorpus/train.pkl")
-   valider.train_epoch(model, epoch, save_path="./data/prepro/bookcorpus/valid.pkl")
-   tester.train_epoch(model, epoch, save_path="./data/prepro/bookcorpus/test.pkl")
+    debuger.train_epoch(model,epoch)
 
 print("train finished..")
+##############################################train mode ###############################################################
+#data load
+
+# train_loader = BERTDataloader(config,"train", sp)
+# #test_loader = BERTDataloader(config, "test", sp)
+# #valid_loader = BERTDataloader(config, "valid", sp)
+# print("Iteration : train {}".format(len(train_loader)))
+# #print("Iteration :: train {} | test {} | valid {}".format(len(train_loader), len(test_loader), len(valid_loader)))
+#
+# #model load
+# model = BERT_PretrainModel(config, args, device)
+#
+# #trainer load
+# trainer = train.get_trainer(config,args,device,train_loader, writer, "train")
+# #tester = train.get_trainer(config, args, device, test_loader, writer, "test")
+# #valider = train.get_trainer(config, args, device, valid_loader, writer, "valid")
+#
+# # optimizer
+# optimizer = train.get_optimizer(model, args.optim)
+# scheduler = train.get_lr_scheduler(optimizer, config)
+#
+# trainer.init_optimizer(optimizer)
+# trainer.init_scheduler(scheduler)
+#
+# #train + eval
+# epochs = max(args.total_steps // len(train_loader), 1)
+# print("-------------------------------------------------Train Epochs  {}------------------------------------------------".format(epochs))
+# for epoch in tqdm.tqdm(range(epochs)):
+#    trainer.train_epoch(model,epoch, save_path="./log/ckpnt/")
+#   # valider.train_epoch(model, epoch, save_path="./data/prepro/bookcorpus/valid.pkl")
+#    #tester.train_epoch(model, epoch, save_path="./data/prepro/bookcorpus/test.pkl")
+#
+# print("train finished..")

@@ -16,6 +16,9 @@ parser.add_argument("--model", type=str, default="base")
 parser.add_argument("--eval_steps", type=int, default=50000)
 parser.add_argument("--gpu", type=int, default=None)
 parser.add_argument("--optim", type=str, default="adam")
+parser.add_argument("--use_pretrained", type=int, default=0)
+parser.add_argument("--total_step", type=int, default=1000000)
+parser.add_argument("--epochs", type=int, default=1000)
 
 args = parser.parse_args()
 config = load_config(args.config)
@@ -27,7 +30,7 @@ device = torch.device("cuda:{}".format(args.device) if use_cuda and args.device 
 oj = os.path.join
 
 log = "./log/"
-ckpnt_loc = oj(log, "ckpnt")
+ckpnt_loc = oj(log, "ckpnt/")
 loss_loc = oj(log, "loss")
 eval_loc = oj(log, "eval_loss")
 
@@ -47,62 +50,49 @@ import sentencepiece as spm
 sp = spm.SentencePieceProcessor()
 sp.Load("word-piece-encoding.model")
 
-#############################################debug######################################################################
-# data load
-debug_loader = BERTDataloader(config, "debug", sp)
+# #############################################train mode ###############################################################
+#data load
+import glob
+file_list = glob.glob("./data/raw/bookcorpus_s/*")
+print("data file num : {}".format(len(file_list)))
+
+#model load
 model = BERT_PretrainModel(config, args, device)
 
-# trainer load
-debuger = train.get_trainer(config, args, device, debug_loader, writer, "train")
+#trainer load
+trainer = train.get_trainer(config,args,device, file_list, sp, writer, "train")
 
-# optimizer
-optimizer = train.get_optimizer(model, args.optim)
-scheduler = train.get_lr_scheduler(optimizer, config)
+if args.use_pretrained:
+    #ck_path = oj(ck_loc, "/ckpntckpnt_{}".format(args.use_pretrained))
+    ck_path = "/home/user15/workspace/BERT/log/ckpntckpnt_2"
+    checkpoint = torch.load(ck_path, map_location=device)
+    model.load_state_dict(checkpoint["model_state_dict"])
 
-debuger.init_optimizer(optimizer)
-debuger.init_scheduler(scheduler)
+    optimizer = train.get_optimizer(model, args.optim)
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
-# train + eval
-#epochs = max(args.total_steps // len(debug_loader), 1)
-epochs = 1
-print("-------------------------------------------------Train Epochs  {}------------------------------------------------".format(epochs))
-for epoch in tqdm.tqdm(range(epochs)):
-    debuger.train_epoch(model,epoch)
+    scheduler = train.get_lr_scheduler(optimizer, config)
+    scheduler._step = checkpoint['lr_step']
 
-print("train finished..")
-##############################################train mode ###############################################################
-# #data load
-#
-# train_loader = BERTDataloader(config,"train", sp)
-# #test_loader = BERTDataloader(config, "test", sp)
-# #valid_loader = BERTDataloader(config, "valid", sp)
-# print("Iteration : train {}".format(len(train_loader)))
-# #print("Iteration :: train {} | test {} | valid {}".format(len(train_loader), len(test_loader), len(valid_loader)))
-#
-# #model load
-# model = BERT_PretrainModel(config, args, device)
-#
-# #trainer load
-# trainer = train.get_trainer(config,args,device,train_loader, writer, "train")
-# #tester = train.get_trainer(config, args, device, test_loader, writer, "test")
-# #valider = train.get_trainer(config, args, device, valid_loader, writer, "valid")
-#
-# # optimizer
-# optimizer = train.get_optimizer(model, args.optim)
-# scheduler = train.get_lr_scheduler(optimizer, config)
-#
-# trainer.init_optimizer(optimizer)
-# trainer.init_scheduler(scheduler)
-#
-# #train + eval
-total_epoch = args.total_steps // (config.pretrain.accum_stack * config.pretrain.bs)
-total_epoch = max(total_epoch, 1)
-print("total epoch {}".format(total_epoch))
+    trainer.init_optimizer(optimizer)
+    trainer.init_scheduler(scheduler)
 
-# print("-------------------------------------------------Train Epochs  {}------------------------------------------------".format(epochs))
-# for epoch in tqdm.tqdm(range(total_epoch)):
-#    trainer.train_epoch(model,epoch, save_path="./log/ckpnt/")
-#   # valider.train_epoch(model, epoch, save_path="./data/prepro/bookcorpus/valid.pkl")
-#    #tester.train_epoch(model, epoch, save_path="./data/prepro/bookcorpus/test.pkl")
-#
-# print("train finished..")
+    total_epoch = checkpoint["epoch"]
+
+    model.train()
+
+else:
+    optimizer = train.get_optimizer(model, args.optim)
+    scheduler = train.get_lr_scheduler(optimizer, config)
+
+    trainer.init_optimizer(optimizer)
+    trainer.init_scheduler(scheduler)
+
+    total_epoch = args.epochs
+    print("total epoch {}".format(total_epoch))
+
+for epoch in tqdm.tqdm(range(1, total_epoch+1)):
+    trainer.train_epoch(model, epoch, save_path=ckpnt_loc)
+    if trainer.global_step > args.total_steps:
+        break
+print('finished...')

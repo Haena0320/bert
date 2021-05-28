@@ -1,6 +1,6 @@
-{"pretrain":{"bs": 256, "num_layers": 2,"accum_stack": 16, "seq_len": 128, "warmup": 4000, "ckpnt_step": 10000, "clip": 5},
+{"pretrain":{"bs": 42, "num_layers": 2,"accum_stack": 15, "seq_len": 128, "warmup": 10000, "ckpnt_step": 10000, "clip": 1},
   "model": {"hidden": 128, "d_rate": 0.1, "dim_feedforward": 512, "num_head": 2},
-  "vocab": {"wiki":"./data/prepro/wiki/vocab.pkl","bookcorpus": "./data/prepro/bookcorpus/vocab.pkl"},
+  "vocab": {"wiki":"./data/prepro/:wiki/vocab.pkl","bookcorpus": "./data/prepro/bookcorpus/vocab.pkl"},
 "data": {"wiki": {"train":"./data/raw/wiki/wikitext-2/wiki.train.tokens", "test":"./data/raw/wiki/wikitext-2/wiki.test.tokens", "valid": "./data/raw/wiki/wikitext-2/wiki.valid.tokens"},
           "bookcorpus": {"large": "./data/raw/bookcorpus/books_large.txt", "train": "./data/raw/bookcorpus/train.txt", "test": "./data/raw/bookcorpus/test.txt", "valid": "./data/raw/bookcorpus/valid.txt", "debug": "./data/raw/bookcorpus/valid.txt"}},
 "vocab_info": {"n_token": 30000, "model_type": "word", "model_name": "word-piece-encoding"},

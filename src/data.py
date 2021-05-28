@@ -56,7 +56,7 @@ class Make_BERTDataset:
         t1_label = [self.pad] + t1_label
         t2_label = [self.pad] + t2_label
 
-        segment_input = [0] * len(t1) + [1] * len(t2)
+        segment_input = [1] * len(t1) + [2] * len(t2)
         bert_input = t1 + t2
         bert_label = t1_label + t2_label
 

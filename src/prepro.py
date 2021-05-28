@@ -38,10 +38,9 @@ def make_vocab(input_file, vocab_path, vocab_size, model_name, model_type):
     torch.save(word2idx, vocab_path)
 
 
-def BERTDataloader(config, type, sp, num_workers=10, shuffle=True, drop_last=True):
+def BERTDataloader(config, corpus_path, sp,  num_workers=10, shuffle=True, drop_last=True):
     bs = config.pretrain.bs
-    seq_len = config.pretrain.seq_len
-    corpus_path = config.data.bookcorpus[type]  # wiki 랑 bookcorpus 합쳐야 함., 이거 수정필요
+    seq_len = config.pretrain.seq_len  # wiki 랑 bookcorpus 합쳐야 함., 이거 수정필요
     vocab = torch.load(config.vocab.bookcorpus)
     dataset = BERTDataset(corpus_path=corpus_path, vocab=vocab, sp=sp)
     data_loader = DataLoader(dataset, batch_size=bs, shuffle=shuffle, num_workers=num_workers, drop_last=drop_last,
@@ -63,7 +62,7 @@ def make_padd(samples):
                 batch[idx, :length[idx]] = torch.LongTensor(sample)
             else:
                 batch[idx, :max_len] = torch.LongTensor(sample[:max_len])
-                batch[idx, max_length - 1] = troch.LongTensor([2])
+                batch[idx, max_len - 1] = torch.LongTensor([2])
         return torch.LongTensor(batch)
 
     bert_input = padd(bert_input)
@@ -85,8 +84,9 @@ class BERTDataset(Dataset):
         self.eos = 2
 
         self.mask = self.vocab["[MASK]"]
-        f = open(corpus_path, 'r', encoding=encoding)
-        self.lines = [[clean_str(line[:-1])] for line in tqdm.tqdm(f, desc="Loading Dataset")]
+        f = open(corpus_path, 'r', encoding="utf-8")
+        lines = [[clean_str(line[:-1])] for line in tqdm.tqdm(f, desc="Loading Dataset")]
+        self.lines = [lines[i] + lines[i + 1] for i in range(len(lines) - 1)]
         f.close()
         self.corpus_lines = len(self.lines)
 
@@ -94,15 +94,29 @@ class BERTDataset(Dataset):
         return self.corpus_lines
 
     def __getitem__(self, item):
-        t = self.lines(item)
-        t_random, t_label = self.random_word(t)
-        t_random.insert(0, self.bos)
-        t_label.insert(0, self.pad)
-        segment_input = [self.pad] * len(t)
+        t1, t2, is_next_label = self.random_sent(item)
+        t1_random, t1_label = self.random_word(t1)
+        t2_random, t2_label = self.random_word(t2)
 
-        output = {"bert_input": t_random,
-                  "bert_label": t_label,
+        # [cls] tag = SOS tag, [SEP] tag = EOS tag
+        t1 = [self.bos] + t1_random
+        t2 = [self.eos] + t2_random
+
+        t1_label = [self.pad] + t1_label
+        t2_label = [self.pad] + t2_label
+
+        segment_input = [1] * len(t1) + [2] * len(t2)
+        bert_input = t1 + t2
+        bert_label = t1_label + t2_label
+
+        output = {"bert_input": bert_input,
+                  "bert_label": bert_label,
                   "segment_input": segment_input}
+                 # "is_next": is_next_label}
+
+        assert len(bert_input) == len(segment_input)
+        #assert is_next_label in [0, 1]
+
         return output
 
     def random_word(self, sentence):
@@ -128,6 +142,19 @@ class BERTDataset(Dataset):
         assert len(tokens) == len(output_label)
         return tokens, output_label
 
+    def random_sent(self, index):
+        t1, t2 = self.get_corpus_line(index)
+        if random.random() > 0.5:
+            return t1, t2, 1
+        else:
+            t2 = self.get_random_line()
+            return t1, t2, 0
+
+    def get_corpus_line(self, item):
+        return self.lines[item][0], self.lines[item][1]
+
+    def get_random_line(self):
+        return self.lines[random.randint(0, self.corpus_lines-1)][0]
 
 def clean_str(string):
     string = re.sub(r"[^A-Za-z0-9(),!?\'\']", " ", string)

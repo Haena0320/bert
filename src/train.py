@@ -1,17 +1,20 @@
+import sys, os
+sys.path.append(os.getcwd())
 import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.cuda import amp
+from src.prepro import *
 
 from tqdm import tqdm
 
-def get_trainer(config, args, device, data_loader, writer, type):
-    return Trainer(config, args, device, data_loader, writer, type)
+def get_trainer(config, args, device, file_list, sp, writer, type):
+    return Trainer(config, args, device, file_list,sp, writer, type)
 
 def get_optimizer(model, args_optim):
     if args_optim =="adam":
-        return torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-09)
+        return torch.optim.Adam(model.parameters(), lr=1e-4, betas=(0.9, 0.999), eps=1e-09)
 
 def get_lr_scheduler(optimizer, config):
     hidden = config.model.hidden
@@ -41,19 +44,21 @@ class WarmupLinearschedular:
 
 
 class Trainer:
-    def __init__(self, config, args, device, data_loader, writer, type):
+    def __init__(self, config, args, device, file_list, sp, writer, type):
         self.config = config
         self.args = args
         self.device = device
-        self.data_loader = data_loader
+        self.file_list = file_list
         self.writer = writer
         self.type=type
+        self.sp = sp
         self.accum = config.pretrain.accum_stack
         self.ckpnt_step = config.pretrain.ckpnt_step
         self.gradscaler = amp.GradScaler()
         self.global_step = 0
         self.step = 0
         self.train_loss = 0
+
         self.get_loss = nn.CrossEntropyLoss(ignore_index=0)
 
     def init_optimizer(self, optimizer):
@@ -80,44 +85,47 @@ class Trainer:
         model.to(self.device)
         loss_save = list()
         total_correct = 0
-        total_loss = 0
         correct_t = 0
 
-        for data in tqdm(self.data_loader):
-            data = {k:v.to(self.device) for k, v in data.items()}
-            mask_lm_output = model.forward(data["bert_input"], data["segment_input"])
-            #mask_lm_output, next_sent_output= model.forward(data["bert_input"], data["segment_input"])
-            bs, seq, _ = mask_lm_output.size()
-            #next_loss = self.get_loss(next_sent_output, data["is_next"])
-            loss = self.get_loss(mask_lm_output.view(bs*seq, -1), data["bert_label"].view(-1))
-            #loss = next_loss + mask_loss
+        for f in tqdm(self.file_list):
+            data_loader = BERTDataloader(self.config, f, self.sp)
+            for data in tqdm(data_loader):
+                data = {k:v.to(self.device) for k, v in data.items()}
+                mask_lm_output = model.forward(data["bert_input"], data["segment_input"])
+                #mask_lm_output, next_sent_output= model.forward(data["bert_input"], data["segment_input"])
+                bs, seq, _ = mask_lm_output.size()
+                #next_loss = self.get_loss(next_sent_output, data["is_next"])
+                loss = self.get_loss(mask_lm_output.view(bs*seq, -1), data["bert_label"].view(-1))
+                #loss = next_loss + mask_loss
 
-            if self.type =="train":
-                self.optim_process(model, loss)
-                self.step += 1
+                if self.type =="train":
+                    self.optim_process(model, loss)
+                    self.step += 1
 
-                if self.step % self.ckpnt_step ==0:
-                    torch.save({"epoch":epoch,
-                                "model_state_dict":model.state_dict(),
-                                "optimizer_state_dict":self.optimizer.state_dict()}, save_path+"ckpnt_{}".format(epoch))
+                    if self.step % self.ckpnt_step ==0:
+                        torch.save({"epoch":epoch,
+                                    "model_state_dict":model.state_dict(),
+                                    "optimizer_state_dict":self.optimizer.state_dict(),
+                                    "lr_step":self.scheduler._step},
+                                   save_path+"ckpnt_{}".format(epoch))
+
+                else:
+                    loss_save.append(loss.item())
+
+                    # next sentence accuracy
+                    # correct = next_sent_output.argmax(dim=-1).eq(data["is_next"]).long()
+                    # correct_t += len(data["is_next"])
+                    # total_correct += correct.sum().item()
+
+            if self.type != "train":
+                te_loss = sum(loss_save)/len(loss_save)
+                self.writer.add_scalar("test/loss",te_loss, self.step)
+                self.writer.add_scalar("test/accuracy", total_correct*100/correct_t, self.step)
 
             else:
-                loss_save.append(loss.item())
+                return None
 
-                # next sentence accuracy
-                # correct = next_sent_output.argmax(dim=-1).eq(data["is_next"]).long()
-                # correct_t += len(data["is_next"])
-                # total_correct += correct.sum().item()
-
-        if self.type != "train":
-            te_loss = sum(loss_save)/len(loss_save)
-            self.writer.add_scalar("test/loss",te_loss, self.step)
-            self.writer.add_scalar("test/accuracy", total_correct*100/correct_t, self.step)
-
-        else:
-            return None
-
-        #     #print("Epoch {} | Mode {} | Avg_loss {} | Total-accuracy {}".format(epoch, self.type, total_loss/len(self.data_loader) , total_correct*100/correct_t))
+            del data_loader
 
     def optim_process(self, model, loss):
         loss /= self.accum
@@ -129,8 +137,8 @@ class Trainer:
             torch.nn.utils.clip_grad_norm_(model.parameters(), self.config.pretrain.clip)
             #self.gradscaler.step(self.optimizer)
             #self.gradscaler.update()
-            self.optimizer.step()
             self.scheduler.step()
+            self.optimizer.step()
             self.optimizer.zero_grad()
             self.log_writer(loss.data*self.accum, self.global_step)
             self.global_step += 1

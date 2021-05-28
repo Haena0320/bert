@@ -7,7 +7,7 @@ class WordEncoding(nn.Module):
         super(WordEncoding, self).__init__()
         self.d_model = d_model
         self.vocab_size = vocab_size
-        self.embedding = nn.Embedding(self.vocab_size, self.d_model)
+        self.embedding = nn.Embedding(self.vocab_size, self.d_model, padding_idx=0)
 
     def init_weights(self):
         d = self.d_model**(-0.5)
@@ -22,7 +22,7 @@ class PositionalEncoding(nn.Module):
         self.pos_embedding = nn.Embedding(max_len,d_model)
 
     def init_weights(self):
-        self.pos_embedding.weight.data.normal_(mean=0.0, std=0.02)
+        nn.init.xavier_uniform_(self.pos_embedding.weight.data)
 
     def forward(self, x):
         bs, seq = x.size()  # S :batch,  N : max_len
@@ -32,10 +32,10 @@ class PositionalEncoding(nn.Module):
 class SegmentEncoding(nn.Module):
     def __init__(self, type_num, d_model):
         super(SegmentEncoding, self).__init__()
-        self.segment_embeddings = nn.Embedding(type_num, d_model) # type_token_num : 1 or 2, d_model : dimension
+        self.segment_embeddings = nn.Embedding(type_num, d_model, padding_idx=0) # type_token_num : 1 or 2, d_model : dimension
 
     def init_weights(self):
-        self.segment_embeddings.weight.data.normal_(mean=0.02, std=0.02)
+        nn.init.xavier_uniform_(self.segment_embeddings.weight.data)
 
     def forward(self, type_input=None): # typ_input : 0, 1 으로 마스킹 되있는 input data, x.size == type_input.size
         return self.segment_embeddings(type_input)
@@ -62,7 +62,7 @@ class ScaledDotProduct(nn.Module):
         h = bs_h // bs
         assert bs_h == h*bs
         attn_mask = attn_mask.eq(0).float().repeat(h,1).unsqueeze(1).repeat(1,Q,1).contiguous()
-        attn_output += attn_mask*(-1e-10)
+        attn_output += attn_mask*(-1e+10)
         attn_output = F.softmax(attn_output, dim=-1)
         attn_output = F.dropout(attn_output, p=self.dropout)
         output = torch.bmm(attn_output,value) # output : (bs, seq_q, d_model)
@@ -79,9 +79,9 @@ class MultiheadAttention_In(nn.Module):
         self.fc_v = nn.Linear(d_model, d_model, bias=False)
 
     def init_weights(self):
-        self.fc_q.weight.data.normal_(mean=0.0, std=0.02)
-        self.fc_k.weight.data.normal_(mean=0.0, std=0.02)
-        self.fc_v.weight.data.normal_(mean=0.0, std=0.02)
+        nn.init.xavier_uniform_(self.fc_q.weight.data)
+        nn.init.xavier_uniform_(self.fc_k.weight.data)
+        nn.init.xavier_uniform_(self.fc_v.weight.data)
 
     def forward(self, query, key, value): # (bs, seq, embedding_dim)
         bs, seq, d_model = query.size()
@@ -102,10 +102,10 @@ class MultiheadAttention_Out(nn.Module):
         super(MultiheadAttention_Out, self).__init__()
         self.d_model = d_model
         self.num_heads = num_heads
-        self.linear = nn.Linear(d_model, d_model)
+        self.linear = nn.Linear(d_model, d_model, bias=False)
 
     def init_weights(self):
-        self.linear.weight.data.normal_(mean=0.0, std=0.02)
+        nn.init.xavier_uniform_(self.linear.weight.data)
 
     def forward(self, attn_output):
         bs_h,seq,_ = attn_output.size()

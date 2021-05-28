@@ -34,27 +34,12 @@ class EncoderLayer(nn.Module):
         self.norm2.weight.data.fill_(1.0)
 
     def forward(self, input, input_mask=None):
-        import time
-        a = time.time()
-        print(a)
         query, key, value = self.attn_in(input, input, input)
-        b = time.time()-a
-        print("after attn in", b)
         attn_out = self.scaled_dot(query, key, value, input_mask)
-        c = time.time()-b
-        print("after scaled dot", c)
         out1 = self.attn_out(attn_out)
-        d = time.time()-c
-        print("after attn out",d)
         out = self.norm1(input+self.dropout1(out1))
-        e = time.time()-d
-        print("after norm", e)
         out2= self.linear2(self.dropout(self.activation(self.linear1(out))))
-        f = time.time()-e
-        print("after ffd", f)
         out = self.norm2(out1+self.dropout2(out2))
-        g = time.time()-f
-        print("after norm final ", g)
         return out
 
 class TransformerEncoder(nn.Module):
@@ -81,7 +66,7 @@ class BertEmbedding(nn.Module):
         self.dropout = dropout
         self.pos_embed = PositionalEncoding(dimension)
         self.word_embed = WordEncoding(vocab, dimension)
-        self.seg_embed = SegmentEncoding(2, dimension) # 2 check!!! 
+        self.seg_embed = SegmentEncoding(3, dimension) # 2 check!!! 
         self.norm = LayerNorm(dimension)
         self.dropout= Dropout(dropout)
 
@@ -132,7 +117,7 @@ class BERT_PretrainModel(nn.Module):
         self.mlm_span = nn.Linear(dimension, dimension)
         self.activation = nn.GELU()
         self.norm_layer = torch.nn.LayerNorm(dimension, eps=1e-12)
-        self.mlm_head = nn.Linear(dimension, vocab)
+        self.mlm_head = nn.Linear(dimension, vocab, bias=False)
 
     def forward(self, src, token_type_input=None):
         output = self.bert_model(src, token_type_input)

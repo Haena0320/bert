@@ -33,9 +33,8 @@ class WarmupLinearschedular:
         self._step += 1
         rate = self.rate()
         for p in self.optimizer.param_groups:
-            p["lr"] =  rate
+            p["lr"] = rate
         self._rate = rate
-        self.optimizer.step()
 
     def rate(self, step=None):
         if step is None:
@@ -91,12 +90,17 @@ class Trainer:
             data_loader = BERTDataloader(self.config, f, self.sp)
             for data in tqdm(data_loader):
                 data = {k:v.to(self.device) for k, v in data.items()}
-                mask_lm_output = model.forward(data["bert_input"], data["segment_input"])
-                #mask_lm_output, next_sent_output= model.forward(data["bert_input"], data["segment_input"])
+
+                mask_lm_output, next_sent_output= model.forward(data["bert_input"], data["segment_input"])
                 bs, seq, _ = mask_lm_output.size()
-                #next_loss = self.get_loss(next_sent_output, data["is_next"])
-                loss = self.get_loss(mask_lm_output.view(bs*seq, -1), data["bert_label"].view(-1))
-                #loss = next_loss + mask_loss
+
+                accuracy = torch.argmax(next_sent_output, dim=-1)
+                accuracy= sum(accuracy.eq(data["is_next"]))*100/len(data["is_next"])
+                self.writer.add_scalar("next/accuracy",accuracy.data, self.step)
+
+                next_loss = self.get_loss(next_sent_output, data["is_next"])
+                mask_loss = self.get_loss(mask_lm_output.view(bs*seq, -1), data["bert_label"].view(-1))
+                loss = next_loss + mask_loss
 
                 if self.type =="train":
                     self.optim_process(model, loss)
@@ -112,10 +116,10 @@ class Trainer:
                 else:
                     loss_save.append(loss.item())
 
-                    # next sentence accuracy
-                    # correct = next_sent_output.argmax(dim=-1).eq(data["is_next"]).long()
-                    # correct_t += len(data["is_next"])
-                    # total_correct += correct.sum().item()
+                    #next sentence accuracy
+                    correct = next_sent_output.argmax(dim=-1).eq(data["is_next"]).long()
+                    correct_t += len(data["is_next"])
+                    total_correct += correct.sum().item()
 
             if self.type != "train":
                 te_loss = sum(loss_save)/len(loss_save)
@@ -123,9 +127,10 @@ class Trainer:
                 self.writer.add_scalar("test/accuracy", total_correct*100/correct_t, self.step)
 
             else:
-                return None
+                pass
 
             del data_loader
+        self.writer.close()
 
     def optim_process(self, model, loss):
         loss /= self.accum
@@ -142,12 +147,6 @@ class Trainer:
             self.optimizer.zero_grad()
             self.log_writer(loss.data*self.accum, self.global_step)
             self.global_step += 1
-
-
-
-
-
-
 
 
 

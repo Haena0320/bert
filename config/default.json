@@ -3,5 +3,7 @@
   "vocab": {"wiki":"./data/prepro/:wiki/vocab.pkl","bookcorpus": "./data/prepro/bookcorpus/vocab.pkl"},
 "data": {"wiki": {"train":"./data/raw/wiki/wikitext-2/wiki.train.tokens", "test":"./data/raw/wiki/wikitext-2/wiki.test.tokens", "valid": "./data/raw/wiki/wikitext-2/wiki.valid.tokens"},
           "bookcorpus": {"large": "./data/raw/bookcorpus/books_large.txt", "train": "./data/raw/bookcorpus/train.txt", "test": "./data/raw/bookcorpus/test.txt", "valid": "./data/raw/bookcorpus/valid.txt", "debug": "./data/raw/bookcorpus/valid.txt"}},
-"vocab_info": {"n_token": 30000, "model_type": "word", "model_name": "word-piece-encoding"},
-"prepro_data": {"bookcorpus": {"train":"./data/prepro/bookcorpus/train.json" ,"test": "./data/prepro/bookcorpus/test.json","valid":"./data/prepro/bookcorpus/valid.json"}}}
+"vocab_info": {"n_token": 30001, "model_type": "word", "model_name": "word-piece-encoding"},
+"prepro_data": {"bookcorpus": {"train":"./data/prepro/bookcorpus/train.json" ,"test": "./data/prepro/bookcorpus/test.json","valid":"./data/prepro/bookcorpus/valid.json"}},
+"squad":{"raw_tr": "./data/raw/squad/train-v2.0.json", "prepro_tr": "./data/prepro/squad/train.json",
+          "raw_de": "./data/raw/squad/dev-v2.0.json", "prepro_de": "./data/prepro/squad/dev.json"}}

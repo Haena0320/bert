@@ -38,7 +38,7 @@ def make_vocab(input_file, vocab_path, vocab_size, model_name, model_type):
     torch.save(word2idx, vocab_path)
 
 
-def BERTDataloader(config, corpus_path, sp,  num_workers=10, shuffle=True, drop_last=True):
+def BERTDataloader(config, corpus_path, sp,  num_workers=3, shuffle=True, drop_last=True):
     bs = config.pretrain.bs
     seq_len = config.pretrain.seq_len  # wiki 랑 bookcorpus 합쳐야 함., 이거 수정필요
     vocab = torch.load(config.vocab.bookcorpus)
@@ -52,6 +52,7 @@ def make_padd(samples):
     bert_input = [sample["bert_input"] for sample in samples]
     bert_label = [sample["bert_label"] for sample in samples]
     segment_input = [sample["segment_input"] for sample in samples]
+    is_next = torch.LongTensor([sample["is_next"] for sample in samples])
 
     def padd(samples):
         length = [len(i) for i in samples]
@@ -70,7 +71,7 @@ def make_padd(samples):
     segment_input = padd(segment_input)
 
     return {"bert_input": bert_input.contiguous(), "bert_label": bert_label.contiguous(),
-            "segment_input": segment_input.contiguous()}
+            "segment_input": segment_input.contiguous(), "is_next":is_next}
 
 
 class BERTDataset(Dataset):
@@ -84,7 +85,7 @@ class BERTDataset(Dataset):
         self.eos = 2
 
         self.mask = self.vocab["[MASK]"]
-        f = open(corpus_path, 'r', encoding="utf-8")
+        f = open(corpus_path, 'r', encoding=encoding)
         lines = [[clean_str(line[:-1])] for line in tqdm.tqdm(f, desc="Loading Dataset")]
         self.lines = [lines[i] + lines[i + 1] for i in range(len(lines) - 1)]
         f.close()
@@ -111,11 +112,11 @@ class BERTDataset(Dataset):
 
         output = {"bert_input": bert_input,
                   "bert_label": bert_label,
-                  "segment_input": segment_input}
-                 # "is_next": is_next_label}
+                  "segment_input": segment_input,
+                  "is_next": is_next_label}
 
         assert len(bert_input) == len(segment_input)
-        #assert is_next_label in [0, 1]
+        assert is_next_label in [0, 1]
 
         return output
 
@@ -169,6 +170,7 @@ def clean_str(string):
     string = re.sub(r"\(", " ( ", string)
     string = re.sub(r"\)", " ) ", string)
     string = re.sub(r"\?", " ? ", string)
+    string = re.sub(r"\??", " ?? ", string)
     string = re.sub(r"\s{2,}", " ", string)
     # return string.strip().lower()
     return string

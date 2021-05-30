@@ -8,7 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode", type=str, default="")
-parser.add_argument("--device", type=str, default=None)
+
 parser.add_argument("--config", type=str, default="default")
 parser.add_argument("--total_steps", type=int, default="1000000")
 parser.add_argument("--dataset", type=str, default="bookcorpus")
@@ -18,13 +18,14 @@ parser.add_argument("--gpu", type=int, default=None)
 parser.add_argument("--optim", type=str, default="adam")
 parser.add_argument("--use_pretrained", type=int, default=0)
 parser.add_argument("--total_step", type=int, default=1000000)
-parser.add_argument("--epochs", type=int, default=1000)
+parser.add_argument("--epochs", type=int, default=100)
 
 args = parser.parse_args()
 config = load_config(args.config)
 
 use_cuda = torch.cuda.is_available()
-device = torch.device("cuda:{}".format(args.device) if use_cuda and args.device is not None else  "cpu")
+device = torch.device("cuda:{}".format(args.gpu) if use_cuda and args.gpu is not None else  "cpu")
+
 
 ## log save file
 oj = os.path.join
@@ -63,9 +64,10 @@ model = BERT_PretrainModel(config, args, device)
 trainer = train.get_trainer(config,args,device, file_list, sp, writer, "train")
 
 if args.use_pretrained:
-    #ck_path = oj(ck_loc, "/ckpntckpnt_{}".format(args.use_pretrained))
-    ck_path = "/home/user15/workspace/BERT/log/ckpntckpnt_2"
+    ck_path = oj(ck_loc, "/ckpnt_{}".format(args.use_pretrained))
+    #ck_path = "/data/user15/workspace/BERT/log/ckpntckpnt_1"
     checkpoint = torch.load(ck_path, map_location=device)
+    print(device)
     model.load_state_dict(checkpoint["model_state_dict"])
 
     optimizer = train.get_optimizer(model, args.optim)

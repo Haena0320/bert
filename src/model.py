@@ -100,58 +100,9 @@ class BertModel(nn.Module):
         return output
 
 
-class BERT_PretrainModel(nn.Module):
-    def __init__(self, config, args, device):
-        
-        super(BERT_PretrainModel, self).__init__()
-        vocab = 30001
-        dimension = config.model.hidden
-        num_heads = config.model.num_head
-        num_layers = config.pretrain.num_layers
-        dim_feedforward = config.model.dim_feedforward
-        dropout = config.model.d_rate
-
-        self.bert_model = BertModel(vocab, dimension, num_heads, dim_feedforward, num_layers, dropout, device)
-
-        # MLMTask
-        self.mlm_span = nn.Linear(dimension, dimension)
-        self.activation = nn.GELU()
-        self.norm_layer = torch.nn.LayerNorm(dimension, eps=1e-12)
-        self.mlm_head = nn.Linear(dimension, vocab, bias=False)
-
-    def forward(self, src, token_type_input=None):
-        output = self.bert_model(src, token_type_input)
-
-        # masked token prediction
-        mlm_output = self.mlm_span(output)
-        mlm_output = self.activation(mlm_output)
-        mlm_output = self.norm_layer(mlm_output)
-        mlm_output = self.mlm_head(mlm_output)
-
-        return mlm_output
-
-
-
-class Next_Sentence_Prediction(nn.Module): # use pretrained model
-    def __init__(self, config, args, device):
-        super(BERT, self).__init__()
-        dimension = config.model.hidden
-
-        self.bert = BERT_PretrainModel(ocnfig, args, device)
-        self.ns_span = nn.Linear(dimension, dimension)
-        self.ns_head = nn.Linear(dimension,2)
-        self.activation = nn.Tanh()
-
-    def forward(self, src, token_type_input=None):
-        output = self.bert(src, token_type_input)
-        # next sentence prediction
-        ns_output = self.activation(self.ns_span(output[:, 0, :]))
-        ns_output = self.ns_head(ns_output)
-        return ns_output
-
-
 # class BERT_PretrainModel(nn.Module):
 #     def __init__(self, config, args, device):
+#
 #         super(BERT_PretrainModel, self).__init__()
 #         vocab = 30001
 #         dimension = config.model.hidden
@@ -166,12 +117,7 @@ class Next_Sentence_Prediction(nn.Module): # use pretrained model
 #         self.mlm_span = nn.Linear(dimension, dimension)
 #         self.activation = nn.GELU()
 #         self.norm_layer = torch.nn.LayerNorm(dimension, eps=1e-12)
-#         self.mlm_head = nn.Linear(dimension, vocab)
-#
-#         # NSTask
-#         self.ns_span = nn.Linear(dimension, dimension)
-#         self.ns_head = nn.Linear(dimension, 2)
-#         self.activation = nn.Tanh()
+#         self.mlm_head = nn.Linear(dimension, vocab, bias=False)
 #
 #     def forward(self, src, token_type_input=None):
 #         output = self.bert_model(src, token_type_input)
@@ -182,11 +128,65 @@ class Next_Sentence_Prediction(nn.Module): # use pretrained model
 #         mlm_output = self.norm_layer(mlm_output)
 #         mlm_output = self.mlm_head(mlm_output)
 #
+#         return mlm_output
+#
+#
+#
+# class Next_Sentence_Prediction(nn.Module): # use pretrained model
+#     def __init__(self, config, args, device):
+#         super(BERT, self).__init__()
+#         dimension = config.model.hidden
+#
+#         self.bert = BERT_PretrainModel(ocnfig, args, device)
+#         self.ns_span = nn.Linear(dimension, dimension)
+#         self.ns_head = nn.Linear(dimension,2)
+#         self.activation = nn.Tanh()
+#
+#     def forward(self, src, token_type_input=None):
+#         output = self.bert(src, token_type_input)
 #         # next sentence prediction
 #         ns_output = self.activation(self.ns_span(output[:, 0, :]))
 #         ns_output = self.ns_head(ns_output)
-#
-#         return mlm_output, ns_output
+#         return ns_output
+
+
+class BERT_PretrainModel(nn.Module):
+    def __init__(self, config, args, device):
+        super(BERT_PretrainModel, self).__init__()
+        vocab = 30001
+        dimension = config.model.hidden
+        num_heads = config.model.num_head
+        num_layers = config.pretrain.num_layers
+        dim_feedforward = config.model.dim_feedforward
+        dropout = config.model.d_rate
+
+        self.bert_model = BertModel(vocab, dimension, num_heads, dim_feedforward, num_layers, dropout, device)
+
+        # MLMTask
+        self.mlm_span = nn.Linear(dimension, dimension)
+        self.activation = nn.GELU()
+        self.norm_layer = torch.nn.LayerNorm(dimension, eps=1e-12)
+        self.mlm_head = nn.Linear(dimension, vocab)
+
+        # NSTask
+        self.ns_span = nn.Linear(dimension, dimension)
+        self.ns_head = nn.Linear(dimension, 2)
+        self.activation = nn.Tanh()
+
+    def forward(self, src, token_type_input=None):
+        output = self.bert_model(src, token_type_input)
+
+        # masked token prediction
+        mlm_output = self.mlm_span(output)
+        mlm_output = self.activation(mlm_output)
+        mlm_output = self.norm_layer(mlm_output)
+        mlm_output = self.mlm_head(mlm_output)
+
+        # next sentence prediction
+        ns_output = self.activation(self.ns_span(output[:, 0, :]))
+        ns_output = self.ns_head(ns_output)
+
+        return mlm_output, ns_output
 
 
 

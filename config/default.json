@@ -5,5 +5,57 @@
           "bookcorpus": {"large": "./data/raw/bookcorpus/books_large.txt", "train": "./data/raw/bookcorpus/train.txt", "test": "./data/raw/bookcorpus/test.txt", "valid": "./data/raw/bookcorpus/valid.txt", "debug": "./data/raw/bookcorpus/valid.txt"}},
 "vocab_info": {"n_token": 30001, "model_type": "word", "model_name": "word-piece-encoding"},
 "prepro_data": {"bookcorpus": {"train":"./data/prepro/bookcorpus/train.json" ,"test": "./data/prepro/bookcorpus/test.json","valid":"./data/prepro/bookcorpus/valid.json"}},
-"squad":{"raw_tr": "./data/raw/squad/train-v2.0.json", "prepro_tr": "./data/prepro/squad/train.json",
-          "raw_de": "./data/raw/squad/dev-v2.0.json", "prepro_de": "./data/prepro/squad/dev.json"}}
+"squad":{"raw_tr": "./data/raw/squad/train-v1.1.json", "prepro_tr": "./data/prepro/squad/train.pkl",
+          "raw_de": "./data/raw/squad/dev-v1.1.json", "prepro_de": "./data/prepro/squad/dev.pkl"},
+
+"squad_v2": {"raw_tr": "./data/raw/squad_v2/train-v2.0.json", "prepro_tr": "./data/prepro/squad_v2/train.pkl",
+              "raw_de": "./data/raw/squad_v2/dev-v2.0.json", "prepro_de": "./data/raw/squad_v2/dev.pkl"},
+
+"CoLA": {"raw_tr": "./data/raw/glue/glue_data/CoLA/train.tsv","prepro_tr": "./data/prepro/glue_data/CoLA/train.pkl",
+          "raw_de": "./data/raw/glue/glue_data/CoLA/dev.tsv", "prepro_de": "./data/prepro/glue_data/CoLA/dev.pkl",
+          "raw_te": "./data/raw/glue/glue_data/CoLA/test.tsv", "prepro_te": "./data/prepro/glue_data/CoLA/test.pkl",
+          "num_labels": 2, "type": "single_class", "metric": "Mat_corr"},
+
+"MRPC": {"raw_tr": "./data/raw/glue/glue_data/MRPC/msr_paraphrase_train.txt","prepro_tr": "./data/prepro/glue_data/MRPC/train.pkl",
+          "raw_de": "./data/raw/glue/glue_data/MRPC/msr_paraphrase_test.txt", "prepro_de": "./data/prepro/glue_data/MRPC/dev.pkl",
+          "raw_te": "./data/raw/glue/glue_data/MRPC/test.tsv", "prepro_te": "./data/prepro/glue_data/MRPC/test.pkl",
+          "num_labels": 2, "type": "single_class", "metric": "F1_Accuracy"},
+
+  "QNLI": {"raw_tr": "./data/raw/glue/glue_data/QNLI/train.tsv","prepro_tr": "./data/prepro/glue_data/QNLI/train.pkl",
+          "raw_de": "./data/raw/glue/glue_data/QNLI/dev.tsv", "prepro_de": "./data/prepro/glue_data/QNLI/dev.pkl",
+          "raw_te": "./data/raw/glue/glue_data/QNLI/test.tsv", "prepro_te": "./data/prepro/glue_data/QNLI/test.pkl",
+          "num_labels": 2, "type": "single_class", "metric": "Accuracy"},
+
+  "QQP": {"raw_tr": "./data/raw/glue/glue_data/QQP/train.tsv","prepro_tr": "./data/prepro/glue_data/QQP/train.pkl",
+          "raw_de": "./data/raw/glue/glue_data/QQP/dev.tsv", "prepro_de": "./data/prepro/glue_data/QQP/dev.pkl",
+          "raw_te": "./data/raw/glue/glue_data/QQP/test.tsv", "prepro_te": "./data/prepro/glue_data/QQP/test.pkl",
+          "num_labels": 2, "type": "single_class", "metric": "F1_Accuracy"},
+
+    "RTE": {"raw_tr": "./data/raw/glue/glue_data/RTE/train.tsv","prepro_tr": "./data/prepro/glue_data/RTE/train.pkl",
+          "raw_de": "./data/raw/glue/glue_data/RTE/dev.tsv", "prepro_de": "./data/prepro/glue_data/RTE/dev.pkl",
+          "raw_te": "./data/raw/glue/glue_data/RTE/test.tsv", "prepro_te": "./data/prepro/glue_data/RTE/test.pkl",
+          "num_labels": 2, "type": "single_class", "metric": "Accuracy"},
+
+  "SST_2": {"raw_tr": "./data/raw/glue/glue_data/SST_2/train.tsv","prepro_tr": "./data/prepro/glue_data/SST_2/train.pkl",
+          "raw_de": "./data/raw/glue/glue_data/SST_2/dev.tsv", "prepro_de": "./data/prepro/glue_data/SST_2/dev.pkl",
+          "raw_te": "./data/raw/glue/glue_data/SST_2/test.tsv", "prepro_te": "./data/prepro/glue_data/SST_2/test.pkl",
+          "num_labels": 2, "type": "single_class", "metric": "Accuracy"},
+
+  "STS_B": {"raw_tr": "./data/raw/glue/glue_data/STS_B/train.tsv","prepro_tr": "./data/prepro/glue_data/STS_B/train.pkl",
+          "raw_de": "./data/raw/glue/glue_data/STS_B/dev.tsv", "prepro_de": "./data/prepro/glue_data/STS_B/dev.pkl",
+          "raw_te": "./data/raw/glue/glue_data/STS_B/test.tsv", "prepro_te": "./data/prepro/glue_data/STS_B/test.pkl",
+          "num_labels": 1, "type": "single_class", "metric": "Pearson_cor"},
+
+    "WNLI": {"raw_tr": "./data/raw/glue/glue_data/WNLI/train.tsv","prepro_tr": "./data/prepro/glue_data/WNLI/train.pkl",
+          "raw_de": "./data/raw/glue/glue_data/WNLI/dev.tsv", "prepro_de": "./data/prepro/glue_data/WNLI/dev.pkl",
+          "raw_te": "./data/raw/glue/glue_data/WNLI/test.tsv", "prepro_te": "./data/prepro/glue_data/WNLI/test.pkl",
+          "num_labels": 2, "type": "single_class", "metric": "Accuracy"},
+
+      "MNLI_m": {"raw_tr": "./data/raw/glue/glue_data/MNLI/dev_matched.tsv","prepro_tr": "./data/prepro/glue_data/MNLI/dev_matched.pkl",
+                  "raw_de": "./data/raw/glue/glue_data/MNLI/test_matched.tsv", "prepro_de": "./data/prepro/glue_data/MNLI/test_matched.pkl",
+                  "num_labels": 3, "type": "multi_class", "metric": "Accuracy"},
+
+  "MNLI_mm": {"raw_tr": "./data/raw/glue/glue_data/MNLI/dev_mismatched.tsv","prepro_tr": "./data/prepro/glue_data/MNLI/dev_mismatched.pkl",
+              "raw_de": "./data/raw/glue/glue_data/MNLI/test_mismatched.tsv", "prepro_de": "./data/prepro/glue_data/MNLI/test_mismatched.pkl",
+              "num_labels": 3, "type": "multi_class", "metric": "Accuracy"}
+}

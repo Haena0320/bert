@@ -1,6 +1,8 @@
 import collections
 import re
 import string
+from scipy.stats import peasonr
+from sklearn.metrics import matthews_corrcoef
 
 def compute_qa_exact(ans_pred_tokens_samples):
     """
@@ -54,12 +56,76 @@ def compute_qa_f1(ans_pred_tokens_samples):
         return f1
 
     f1_scores = []
-    for (ans_tokens, pred_tokens) in ans_pred_tokens_samples:
-        candidate_score = []
-        for item in ans_tokens:
-            candidate_score.append(sample_f1(item, pred_tokens))
-        f1_scores.append(max(candidate_score))
+    for idx in range(len(answers)):
+        for (ans_tokens, pred_tokens) in ans_pred_tokens_samples:
+            candidate_score = []
+            for item in ans_tokens:
+                candidate_score.append(sample_f1(item, pred_tokens))
+            f1_scores.append(max(candidate_score))
 
     return 100.0*sum(f1_scores)/len(f1_scores)
+
+def compute_squad_f1(pred, label ,answers):
+    """
+    :param pred: bs*2 (start_pred, end_pred)
+    :param label: bs*2 (start_label, end_label)
+    :param answers: bs, [paragrapth_id, 1,2,3,6,4]
+    :return:
+    """
+    def sample_f1(pred_1, label_1, answer_1):
+        sp =pred_1[0]
+        ep = pred_1[1]
+        sl = label_1[0]
+        el = label_1[1]
+
+        pred_token = answer_1[sp:ep+1]
+        label_token = answer_1[sl:el+1]
+        common = collections.Counter(pred_token) & collections.Counter(label_token)
+        num_same = sum(common.values())
+        if num_same ==0:
+            return 0
+        precision = num_same / len(pred_token)
+        recall = num_same / len(label_token)
+        f1 = 2*(precision*recall) /(precision+recall)
+        return f1
+
+    f1_score = []
+    for idx in range(len(label)):
+        pred_sample = pred[idx]
+        label_sample = label[idx]
+        answer_sample = answers[idx]
+        f = sample_f1(pred_sample,label_sample, answer_sample)
+        f1_score.append(f)
+
+    return 100*sum(f1_score)/len(f1_score)
+
+def compute_accuracy(pred, label):
+    return sum(pred.eq(label).float()) / sum(1-label.eq(0).float())
+
+def compute_f1(pred, label):
+    common = collections.Counter(pred)&collections.Counter(label)
+    num_same = sum(common.values())
+    if num_same == 0:
+        return 0
+    precision = num_same / len(pred_token)
+    recall = num_same / len(label_token)
+    f1 = 2*(precision*recall) / (precision + recall )
+    return f1
+
+def compute_Mat_corr(pred, label):
+    return matthews_corrcoef(label, pred)
+
+def compute_Pearson_corr(pred, label):
+   # pred : (bs, 1)
+   # label : (bs, 1)
+   corr, p_value = pearsonr(x, corr)
+   return corr
+
+
+
+
+
+
+
         
     

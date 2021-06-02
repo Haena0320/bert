@@ -58,7 +58,8 @@ class Trainer:
         self.step = 0
         self.train_loss = 0
 
-        self.get_loss = nn.CrossEntropyLoss(ignore_index=0)
+        self.get_mask_loss = nn.CrossEntropyLoss(ignore_index=0)
+        self.get_next_loss = nn.BCELoss()
 
     def init_optimizer(self, optimizer):
         self.optimizer = optimizer
@@ -98,8 +99,10 @@ class Trainer:
                 accuracy= sum(accuracy.eq(data["is_next"]))*100/len(data["is_next"])
                 self.writer.add_scalar("next/accuracy",accuracy.data, self.step)
 
-                next_loss = self.get_loss(next_sent_output, data["is_next"])
-                mask_loss = self.get_loss(mask_lm_output.view(bs*seq, -1), data["bert_label"].view(-1))
+                next_loss = self.get_mask_loss(next_sent_output, data["is_next"])
+                mask_loss = self.get_mask_loss(mask_lm_output.view(bs*seq, -1), data["bert_label"].view(-1))
+                self.writer.add_scalar("next/loss", next_loss.data, self.step)
+                self.writer.add_scalar("mask-loss", mask_loss.data, self.step)
                 loss = next_loss + mask_loss
 
                 if self.type =="train":

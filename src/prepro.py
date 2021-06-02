@@ -100,8 +100,8 @@ class BERTDataset(Dataset):
         t2_random, t2_label = self.random_word(t2)
 
         # [cls] tag = SOS tag, [SEP] tag = EOS tag
-        t1 = [self.bos] + t1_random
-        t2 = [self.eos] + t2_random
+        t1 = [self.bos] + t1_random+ [self.eos]
+        t2 = t2_random
 
         t1_label = [self.pad] + t1_label
         t2_label = [self.pad] + t2_label

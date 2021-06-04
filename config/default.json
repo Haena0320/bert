@@ -2,8 +2,8 @@
   "model": {"hidden": 128, "d_rate": 0.1, "dim_feedforward": 512, "num_head": 2},
   "vocab": {"wiki":"./data/prepro/:wiki/vocab.pkl","bookcorpus": "./data/prepro/bookcorpus/vocab.pkl"},
 "data": {"wiki": {"train":"./data/raw/wiki/wikitext-2/wiki.train.tokens", "test":"./data/raw/wiki/wikitext-2/wiki.test.tokens", "valid": "./data/raw/wiki/wikitext-2/wiki.valid.tokens"},
-          "bookcorpus": {"large": "./data/raw/bookcorpus/books_large.txt", "train": "./data/raw/bookcorpus/train.txt", "test": "./data/raw/bookcorpus/test.txt", "valid": "./data/raw/bookcorpus/valid.txt", "debug": "./data/raw/bookcorpus/valid.txt"}},
-"vocab_info": {"n_token": 30001, "model_type": "word", "model_name": "word-piece-encoding"},
+          "bookcorpus": {"large": "./data/raw/book_wiki.txt", "train": "./data/raw/bookcorpus/train.txt", "test": "./data/raw/bookcorpus/test.txt", "valid": "./data/raw/bookcorpus/valid.txt", "debug": "./data/raw/bookcorpus/valid.txt"}},
+"vocab_info": {"n_token": 30001, "model_type": "bpe", "model_name": "bpe"},
 "prepro_data": {"bookcorpus": {"train":"./data/prepro/bookcorpus/train.json" ,"test": "./data/prepro/bookcorpus/test.json","valid":"./data/prepro/bookcorpus/valid.json"}},
 "squad":{"raw_tr": "./data/raw/squad/train-v1.1.json", "prepro_tr": "./data/prepro/squad/train.pkl",
           "raw_de": "./data/raw/squad/dev-v1.1.json", "prepro_de": "./data/prepro/squad/dev.pkl"},
@@ -19,7 +19,7 @@
 "MRPC": {"raw_tr": "./data/raw/glue/glue_data/MRPC/msr_paraphrase_train.txt","prepro_tr": "./data/prepro/glue_data/MRPC/train.pkl",
           "raw_de": "./data/raw/glue/glue_data/MRPC/msr_paraphrase_test.txt", "prepro_de": "./data/prepro/glue_data/MRPC/dev.pkl",
           "raw_te": "./data/raw/glue/glue_data/MRPC/test.tsv", "prepro_te": "./data/prepro/glue_data/MRPC/test.pkl",
-          "num_labels": 2, "type": "single_class", "metric": "F1_Accuracy"},
+          "num_labels": 2, "type": "single_class", "metric": "F1"},
 
   "QNLI": {"raw_tr": "./data/raw/glue/glue_data/QNLI/train.tsv","prepro_tr": "./data/prepro/glue_data/QNLI/train.pkl",
           "raw_de": "./data/raw/glue/glue_data/QNLI/dev.tsv", "prepro_de": "./data/prepro/glue_data/QNLI/dev.pkl",
@@ -29,7 +29,7 @@
   "QQP": {"raw_tr": "./data/raw/glue/glue_data/QQP/train.tsv","prepro_tr": "./data/prepro/glue_data/QQP/train.pkl",
           "raw_de": "./data/raw/glue/glue_data/QQP/dev.tsv", "prepro_de": "./data/prepro/glue_data/QQP/dev.pkl",
           "raw_te": "./data/raw/glue/glue_data/QQP/test.tsv", "prepro_te": "./data/prepro/glue_data/QQP/test.pkl",
-          "num_labels": 2, "type": "single_class", "metric": "F1_Accuracy"},
+          "num_labels": 2, "type": "single_class", "metric": "F1"},
 
     "RTE": {"raw_tr": "./data/raw/glue/glue_data/RTE/train.tsv","prepro_tr": "./data/prepro/glue_data/RTE/train.pkl",
           "raw_de": "./data/raw/glue/glue_data/RTE/dev.tsv", "prepro_de": "./data/prepro/glue_data/RTE/dev.pkl",

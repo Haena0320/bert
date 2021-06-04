@@ -8,6 +8,8 @@ sys.path.append(os.getcwd())
 from src.metrics import compute_f1
 from tqdm import tqdm
 
+
+
 def squad_prepro(raw_path, save_path, sp, seq_len=128):
     pad = 0
     bos = 1
@@ -28,22 +30,31 @@ def squad_prepro(raw_path, save_path, sp, seq_len=128):
 
                 question = sp.EncodeAsIds(qa["question"].strip())
                 answer_starts = [answer["answer_start"] for answer in qa["answers"]]
+
                 if len(answer_starts) == 0: # squad v2.2
-                    _label = [[bos]]
+                    _label = [bos]
                     no_answer_cnt += 1
 
                 else: # squad v1.1
-
-                    _label = list(set([answer["text"].strip() for answer in qa["answers"]])) # answer token list [1,2,3,5]
-                    _label = [sp.EncodeAsIds(l) for l in _label]
-
+                    _label = qa["answers"][0]["text"]
+                    _label = sp.EncodeAsIds(_label)
+                    if len(_label) == 1:
+                        _label = _label + _label
+                        assert len(_label) == 2
                 _input = [bos] + question + [eos] + context
                 _segment = [1] + [1] * len(question) + [1] + [2] * len(context)
+                _start = [1 if _input[i] == _label[0] else 0 for i in range(len(_input))]
+                _end = [1 if _input[i] == _label[1] else 0 for i in range(len(_input))]
+                
                 _input += [pad] * (seq_len - len(_input))
+                _start += [pad]*(seq_len - len(_start))
+                _end += [pad]*(seq_len - len(_end))
                 _segment += [pad] * (seq_len - len(_segment))
 
-                assert len(_input) > len(_label)
+
                 assert len(_input) == len(_segment)
+                assert len(_input) == len(_start)
+                assert len(_input) == len(_end)
 
                 """
                 item  = {
@@ -55,7 +66,7 @@ def squad_prepro(raw_path, save_path, sp, seq_len=128):
                     }
                 }
                 """
-                item = {"input": _input, "segment": _segment, "label": _label}
+                item = {"inputs": _input, "segments": _segment, "starts": _start, "ends":_end}
                 data["data"].append(item)
 
     torch.save(data, save_path)
@@ -65,15 +76,8 @@ def squad_prepro(raw_path, save_path, sp, seq_len=128):
     print('finished !! ')
     return None
 
-"""
-sample
-{'input': [1, 3, 815, 41, 326, 13, 6, 3365, 3, 2, 3, 162, 10, 3, 568, 17424, 354, 115, 6, 3, 6, 3, 41, 6, 815, 24592, 80, 4366, 5104, 30, 58, 3, 13, 3, 3435, 7, 74, 3, 33, 2964, 354, 3429, 13, 3, 6, 3, 12011, 3, 3401, 75, 3, 41, 22,
- 2631, 22, 3, 34, 3, 64, 14152, 7, 10, 815, 13, 3, 41, 37, 10, 326, 13, 6, 3365, 3, 9, 41, 4341, 3, 705, 18, 113, 2522, 444, 32, 108, 6512, 31, 14096, 6110, 3, 3263, 3, 11807, 562, 3, 27506, 9470, 17196, 9, 1910, 24804, 3, 15204, 76
-92, 13, 815, 5530, 6, 3, 170, 41, 8987, 7, 3, 9, 6, 3, 170, 41, 8987, 7, 3, 0, 0, 0, 0, 0, 0, 0], 'segment': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
- 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-2, 2, 2, 0, 0, 0, 0, 0, 0, 0], 'label': [[1]]}"""
 
-    
+
 class Squad_Dataset(Dataset):
     def __init__(self, filepath):
         logging.info("generating examples from = %s", filepath)
@@ -90,17 +94,39 @@ class Squad_Dataset(Dataset):
 def padd_fn(samples):
     def padd(samples):
         ln = [len(l) for l in samples]
-        max_ln = max(ln)
+        max_ln = 128
         data = torch.zeros(len(samples), max_ln).to(torch.long)
         for i, sample in enumerate(samples):
-            data[i, :ln[i]] = torch.LongTensor(sample)
-        return LongTensor(data)
-    label_ = [sample['label'] for sample in samples]
-    label_ = padd(label_)
+            if ln[i]> max_ln:
+                data[i,:] = torch.LongTensor(sample[:max_ln])
+            else:
+                data[i, :ln[i]] = torch.LongTensor(sample)
+        return torch.LongTensor(data)
+    def label_padd(samples):
+        ln = [len(l) for l in samples]
+        max_ln = 128
+        data = torch.zeros(len(samples), max_ln).to(torch.float)
+        for i, sample in enumerate(samples):
+            if ln[i]> max_ln:
+                data[i,:] = torch.FloatTensor(sample[:max_ln])
+            else:
+                data[i, :ln[i]] = torch.FloatTensor(sample)
+        return torch.FloatTensor(data)
 
-    return {"input": torch.LongTensor(samples["input"]).contiguous(),
-            "segment": torch.LongTensor(samples["segment"]).contiguous(),
-            "label": torch.LongTensor(label_).contiguous()}
+    inputs = [sample['inputs'] for sample in samples]
+    segments = [sample["segments"] for sample in samples]
+    starts = [sample["starts"] for sample in samples]
+    ends = [sample["ends"] for sample in samples]
+
+    inputs = padd(inputs)
+    segments = padd(segments)
+    starts = padd(starts)
+    ends = padd(ends)
+
+    return {"inputs": torch.LongTensor(inputs).contiguous(),
+            "segments": torch.LongTensor(segments).contiguous(),
+            "starts": torch.LongTensor(starts).contiguous(),
+            "ends":torch.LongTensor(ends).contiguous()}
 
 
 def Squad_Loader(corpus_path, bs=32, num_workers=3, shuffle=True,drop_last=True):
@@ -145,44 +171,38 @@ class Trainer:
     def train_epoch(self, model, epoch, save_path=None):
         if self.type =="train":
             model.train()
-
         else:
             model.eval()
+
+
         model.to(self.device)
         total_loss  = list()
         total_accuracy = list()
         total_f1 = list()
         
         for data in tqdm(self.data_loader):
-            print(data)
             data = {k:v.to(self.device) for k, v in data.items()}
-            squad_output = model(data)
-            loss, accuracy = get_loss(squad_output, data["label"])
+            loss, start_token, end_token = model(data)
             
-            f1 = compute_f1(squad_output,data["label"],data['answers'])
-            
+            f11 = compute_f1(start_token, data["starts"])
+            f12 = comput_f1(end_token, data["ends"])
+            f1 = (f11+f12)/2
+
             if self.type =="train":
-                
                 self.optim_process(model, loss)
                 self.step += 1
-                self.writer.add_scalar("train/accuracy", accuracy.data, self.step)
                 self.writer.add_scalar("train/f1", f1.data, self.step)
 
-                if self.step  % self.ckpnt_step ==0:
-                    torch.save({"epoch":epoch,
-                                "model_state_dict":model.state_dict(),
-                                "optimizer_state_dict":self.optimizer.state_dict()},
-                               save_path+"cknpt_{}".format(epoch))
             else:
                 total_loss.append(loss.item())
-                total_accuracy.append(accuracy.item())
                 total_f1.append(f1.item())
                 
         if self.type != "train":
-            self.writer.add_scalar("test/loss", np.mean(total_loss), self.step)
-            self.writer.add_scalar("test/accur", np.mean(total_accuracy), self.step)
-            self.writer.add_scalar("test/f1", np.mean(total_f1), self.step)
-            
+            self.writer.add_scalar("test/loss", sum(total_loss)/len(total_loss), self.step)
+            self.writer.add_scalar("test/ppl", torch.exp(sum(total_accuracy)/len(total_loss)), self.step)
+            self.writer.add_scalar("test/f1", sum(total_f1)/len(total_f1), self.step)
+            print("ppl : {}".format(torch.exp(sum(total_accuracy)/len(total_loss))))
+            print("f1 : {}".format(sum(total_f1)/len(total_f1)))
 
     def optim_process(self, model, loss):
         loss.backward()
@@ -191,54 +211,6 @@ class Trainer:
         self.optimizer.zero_grad()
         self.log_writer(loss.data, self.step)
 
-
-import sys, os
-sys.path.append(os.getcwd())
-from src.model import *
-
-class Squad_Task(nn.Module):
-    def __init__(self, config, device, model):
-        super(Squad_Task,self).__init__()
-
-        #self.bert_model = BertModel(vocab, dimension, num_heads, dim_feedforward, num_layers, dropout, device)
-        self.bert_model = model
-        self.sep = 2
-
-    def forward(self, data):
-        hidden = self.bert_model(data["input"], data["segment"]) #(bs, seq, dimension)
-        labels = data['label'] # (bs, 2)
-        bs, seq, _ = hidden.size()
-        final_pred = torch.zeros((bs,2))
-        for idx in range(bs):
-            target = hidden[idx, :,:]
-            start = labels[idx][0]
-            end = labels[idx][1]
-            for s in range(seq):
-                if target[s] ==2:
-                    target = target[s+1:]
-
-                # target : predict token
-                _start = F.softmax(start*target)
-                _end = F.softmax(end*target)
-                pred = _start.unsqueeze(0).repeat(len(target),1)+_end.unqueeze(1).repeat(1,len(target))
-                pred = torch.tril(pred)
-                i = torch.argmax(pred)//len(target)
-                p = torch.argmax(pred)%len(target)
-                final_pred[idx] = torch.cat([i.unsqueeze(0),p.unsqueeze(0)])
-
-        return final_pred
-
-def get_loss(output, label):
-    """
-    :param output: (bs, seq, dimension)
-    :param label: [start token, end token], list() , len(label) == 2
-    :return: loss
-    """
-    loss_fn = nn.CrossEntropyLoss()
-    loss = loss_fn(output, label)
-    bs, span = label.size()
-    accuracy = sum(output.eq(label).float())*100/(bs*span)
-    return loss, accuracy
 
             
 

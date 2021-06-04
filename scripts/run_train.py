@@ -49,12 +49,12 @@ import src.train as train
 from src.prepro import *
 import sentencepiece as spm
 sp = spm.SentencePieceProcessor()
-sp.Load("word-piece-encoding.model")
+sp.Load("bpe.model")
 
 # #############################################train mode ###############################################################
 #data load
 import glob
-file_list = glob.glob("./data/raw/bookcorpus_s/*")
+file_list = glob.glob("./data/raw/bookcorpus/*")
 print("data file num : {}".format(len(file_list)))
 
 #model load
@@ -64,12 +64,12 @@ model = BERT_PretrainModel(config, args, device)
 trainer = train.get_trainer(config,args,device, file_list, sp, writer, "train")
 
 if args.use_pretrained:
-    ck_path = oj(ck_loc, "/ckpnt_{}".format(args.use_pretrained))
-    #ck_path = "/data/user15/workspace/BERT/log/ckpntckpnt_1"
+    #ck_path = oj(ckpnt_loc, "/ckpnt_{}".format(args.use_pretrained))
+    ck_path = "/data/user15/workspace/BERT/log/ckpnt/ckpnt_1"
     checkpoint = torch.load(ck_path, map_location=device)
     print(device)
     model.load_state_dict(checkpoint["model_state_dict"])
-
+    model.to(device)
     optimizer = train.get_optimizer(model, args.optim)
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 

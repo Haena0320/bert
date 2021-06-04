@@ -97,7 +97,7 @@ class BertModel(nn.Module):
     def forward(self, src, type_input):
         output = self.bert_embed(src, type_input)
         output = self.transformer_encoder(input=output, mask=src)
-        return output
+        return output # bs, seq, dimension
 
 
 # class BERT_PretrainModel(nn.Module):

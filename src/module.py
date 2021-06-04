@@ -87,6 +87,7 @@ class MultiheadAttention_In(nn.Module):
         bs, seq, d_model = query.size()
         head_dim = d_model// self.num_heads
         assert head_dim * self.num_heads == d_model
+
         q = self.fc_q(query)
         q = torch.cat(torch.chunk(q, self.num_heads, dim=2), dim=0).contiguous()
 

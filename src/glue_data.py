@@ -1,5 +1,7 @@
 import torch
 import csv
+import logging
+from torch.utils.data import DataLoader, Dataset
 # CoLA ['gj04', '1', '', 'The sailors rode the breeze clear of the rocks.']
 def prepro_1(dataset="CoLA", file_path=None, save_path=None, type='train',encoding="utf-8", sp=None, seq_len=128, line=1):
     data = dict()
@@ -19,7 +21,8 @@ def prepro_1(dataset="CoLA", file_path=None, save_path=None, type='train',encodi
     for i in range(len(r)):
         if type != "test":
             label = int(r[i][1])
-            data['labels'].append(label)
+            data['labels'].append([label])
+
 
         if dataset =="CoLA":
             input =r[i][-1]
@@ -75,8 +78,13 @@ def prepro_2(dataset="MRPC", file_path=None, save_path=None, type='train',encodi
                 input_1 = r[i][-2]
                 input_2 = r[i][-1]
                 
-            elif dataset in ["QQP", "STS_B","WNLI"]:
+            elif dataset in ["QQP", "WNLI"]:
                 label = int(r[i][-1])
+                input_1 = r[i][-3]
+                input_2 = r[i][-2]
+
+            elif dataset =="STS_B":
+                label = float(r[i][-1])
                 input_1 = r[i][-3]
                 input_2 = r[i][-2]
                 
@@ -102,7 +110,7 @@ def prepro_2(dataset="MRPC", file_path=None, save_path=None, type='train',encodi
                 input_1 = r[i][8]
                 input_2 = r[i][9]
                 
-            data['labels'].append(label)
+            data['labels'].append([label])
 
         else:
             input_1 = r[i][-2]
@@ -139,18 +147,60 @@ def prepro_2(dataset="MRPC", file_path=None, save_path=None, type='train',encodi
 #######################################
 
 class GLUE_Dataset(Dataset):
-    def __init__(self, filepath):
+    def __init__(self, filepath, type):
         logging.info("generating examples from = %s", filepath)
-        self.data = torch.load(filepath)["data"]
+        self.data = torch.load(filepath)
+        self.type = type
 
     def __len__(self):
-        return len(self.data)
+        return len(self.data["inputs"])
 
     def __getitem__(self, item):
-        inputs = self.data[item]
-        return {k:torch.LongTensor(v) for k,v in inputs.items()}
+        data = dict()
+        data["inputs"] = list()
+        data["segments"] = list()
+        data["labels"] = list()
+        inputs = self.data["inputs"][item]
+        segments = self.data["segments"][item]
+        data["inputs"] = torch.LongTensor(inputs).contiguous()
+        data["segments"] = torch.LongTensor(segments).contiguous()
+        if self.type != "test":
+            labels = self.data["labels"][item]
+ #           data["labels"] = torch.FloatTensor(labels)
+            data["labels"] = torch.LongTensor(labels)
 
-def GLUE_Loader(corpus_path, bs=32, num_workers=3, shuffle=True,drop_last=True):
-    dataset = GLUE_Dataset(corpus_path)
+        return data
+
+def GLUE_Loader(corpus_path, type, bs=32, num_workers=3, shuffle=True,drop_last=True):
+    dataset = GLUE_Dataset(corpus_path, type)
     data_loader = DataLoader(dataset, batch_size=bs, num_workers=num_workers, shuffle=shuffle, drop_last=drop_last, collate_fn=padd_fn)
     return data_loader
+
+def padd_fn(samples):
+    def padd(samples):
+        ln = [len(l) for l in samples]
+        max_ln = max(ln)
+        data = torch.zeros(len(samples), max_ln).to(torch.long)
+        for i, sample in enumerate(samples):
+            data[i, :ln[i]] = torch.LongTensor(sample)
+        return torch.LongTensor(data)
+    def label_padd(samples):
+        data = torch.zeros(len(samples)).to(torch.long)
+        for i, sample in enumerate(samples):
+            data[i] = torch.LongTensor(sample)
+
+        return torch.LongTensor(data)
+
+    label_ = [sample['labels'] for sample in samples]
+    inputs = [sample['inputs'] for sample in samples]
+    segments = [sample['segments'] for sample in samples]
+
+    inputs = padd(inputs)
+    segments = padd(segments)
+    label_ = label_padd(label_)
+
+    return {"inputs": inputs,
+            "segments": segments,
+            "labels": label_}
+
+

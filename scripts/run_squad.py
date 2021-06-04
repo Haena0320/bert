@@ -9,7 +9,7 @@ from tqdm import tqdm
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode", type=str, default="?_?")
 parser.add_argument("--dataset", type=str, default="squad")
-parser.add_argument("--epoch", type=int, default=3)
+parser.add_argument("--epochs", type=int, default=3)
 parser.add_argument("--lr_rate", type=int, default=5e-5)
 parser.add_argument("--bs", type=int, default=32)
 parser.add_argument("--default", type=str, default="default")
@@ -20,7 +20,7 @@ parser.add_argument("--lr", type=int, default=5e-5)
 
 args = parser.parse_args()
 config = load_config(args.default)
-assert args.epoch in [2,3,4]
+assert args.epochs in [2,3,4]
 assert args.dataset in ["squad", "squad_v2","glue", "swag"]
 assert args.lr_rate in [5e-5, 4e-5, 3e-5, 2e-5]
 
@@ -36,32 +36,16 @@ data_info = config[args.dataset]
 import sentencepiece as spm
 
 sp = spm.SentencePieceProcessor()
-sp.Load("word-piece-encoding.model")
+sp.Load("bpe.model")
 
 # squad_prepro(data_info.raw_tr, data_info.prepro_tr,  sp)
 # squad_prepro(data_info.raw_de, data_info.prepro_de,  sp)
 ###################################################################################
-# log dir
-log_dir = "./log/"
-oj = os.path.join
-dir = oj(log_dir, args.dataset)
-tb_dir = oj(dir, "tb")
-
-if not os.path.exists(dir):
-    os.mkdir(dir)
-    os.mkdir(tb_dir)
-
-writer = SummaryWriter(tb_dir)
-
-# data load
-from src.squad import *
-train_loader = Squad_Loader(data_info.prepro_tr)
-dev_loader = Squad_Loader(data_info.prepro_de)
-print("train: {}".format(len(train_loader)),"test: {}".format(len(dev_loader)))
-
-# model load
+## model load
 from src.model import *
-model = BERT_PretrainModel(config,args,device)
+from src.glue_data import *
+from src.glue import Question_Answering_Task
+from src.metrics import *
 
 vocab = config.vocab_info.n_token
 dimension = config.model.hidden
@@ -69,29 +53,58 @@ num_heads = config.model.num_head
 num_layers = config.pretrain.num_layers
 dim_feedforward = config.model.dim_feedforward
 dropout = config.model.d_rate
+
 bert_model = BertModel(vocab, dimension, num_heads, dim_feedforward, num_layers, dropout, device)
+finetune_dict = bert_model.state_dict()
 
 ck_path = "log/ckpnt/ckpnt_{}".format(args.use_pretrained)
 checkpoint = torch.load(ck_path, map_location=device)
-model.load_state_dict(checkpoint["model_state_dict"])
-model.to(device)
+pretrain_dict = checkpoint["model_state_dict"]
+# classification layer 제거
+pretrain_dict = {k:v for k,v in pretrain_dict.items() if k in finetune_dict}
+finetune_dict.update(pretrain_dict)
+
+bert_model.load_state_dict(finetune_dict)
+
+
+######### data######################################################################
+target_data = "squad"
+data_info = config[target_data]
+
+squad_task = Question_Answering_Task(config, device, bert_model)
+
+squad_task.to(device)
+# make log directory
+# log load
+oj = os.path.join
+log_dir = "./log/glue/"
+target_dir = oj(log_dir, target_data)
+tb_dir = oj(target_dir, "tb")
+ckpnt_dir = oj(target_dir, "ckpnt")
+score_dir = oj(target_dir, "score.txt")
+
+writer = SummaryWriter(tb_dir)
+
+# data load
+
+train_loader = Squad_Loader(data_info.prepro_tr)
+test_loader = Squad_Loader(data_info.prepro_de) ####
+
+print("train: {}".format(len(train_loader)),"test: {}".format(len(test_loader)))
 
 # pretrain
-squad_task = Squad_Task(config, device, model)
 optimizer = get_optimizer(squad_task, args.optim, args.lr)
 trainer = get_trainer(config, args, device,train_loader, sp, writer, "train")
-valider = get_trainer(config, args, device,dev_loader, sp, writer, "dev")
+tester = get_trainer(config, args, device,test_loader, sp, writer, "test")
 
 trainer.init_optimizer(optimizer)
-model.train()
 
-total_epoch = args.epoch
+total_epoch = args.epochs
+print("{} data experiment start ! | batch length train: {} test: {}".format(target_data, len(train_loader), len(test_loader)))
 print("total epoch {}".format(total_epoch))
+
 for epoch in tqdm(range(1, total_epoch+1)):
-    trainer.train_epoch(squad_task, epoch)
-    valider.train_epoch(squad_task, epoch)
+    trainer.train_epoch(squad_task, epoch, score_dir)
+    tester.train_epoch(squad_task, epoch, score_dir)
 
 print("finished ..")
-# eval
-##############################################################################
-

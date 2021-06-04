@@ -1,8 +1,10 @@
 import collections
 import re
 import string
-from scipy.stats import peasonr
+from scipy.stats import pearsonr
 from sklearn.metrics import matthews_corrcoef
+import numpy as np
+import torch
 
 def compute_qa_exact(ans_pred_tokens_samples):
     """
@@ -100,28 +102,35 @@ def compute_squad_f1(pred, label ,answers):
     return 100*sum(f1_score)/len(f1_score)
 
 def compute_accuracy(pred, label):
-    return sum(pred.eq(label).float()) / sum(1-label.eq(0).float())
-
+    pred = torch.argmax(pred, dim=-1)
+    return sum((pred==label).float()) / len(label)
+    # return sum(pred.eq(label).float())/len(label)
 def compute_f1(pred, label):
-    common = collections.Counter(pred)&collections.Counter(label)
-    num_same = sum(common.values())
-    if num_same == 0:
-        return 0
-    precision = num_same / len(pred_token)
-    recall = num_same / len(label_token)
-    f1 = 2*(precision*recall) / (precision + recall )
+    pred = torch.argmax(pred, dim=-1)
+    tp = (pred*label).sum()
+    tn = ((1-label)*(1-pred)).sum()
+    fp = ((1-label)*pred).sum()
+    fn = (label*(1-pred)).sum()
+    precision = tp / (tp+fp+1e-7)
+    recall = tp / (tp+fn+1e-7)
+    f1 = 2*precision*recall/(precision+recall+1e-7)
     return f1
 
 def compute_Mat_corr(pred, label):
-    return matthews_corrcoef(label, pred)
+    pred = torch.argmax(pred, dim=-1)
+    tp = (pred * label).sum()
+    tn = ((1 - label) * (1 - pred)).sum()
+    fp = ((1 - label) * pred).sum()
+    fn = (label * (1 - pred)).sum()
+    mcc = (tp*tn-fp*fn)/((tp+fp)*(tp+fn)*(tn+fp)*(tn+fn)+1e-7)**2
+    return mcc
 
 def compute_Pearson_corr(pred, label):
    # pred : (bs, 1)
    # label : (bs, 1)
-   corr, p_value = pearsonr(x, corr)
+   pred = torch.argmax(pred, dim=-1)
+   corr, p_value = pearsonr(pred, label)
    return corr
-
-
 
 
 
